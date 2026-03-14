@@ -1,0 +1,7 @@
+{
+  "deno.enable": true,
+  "deno.enablePaths": ["src/supabase/functions"],
+  "deno.disablePaths": ["src", "node_modules", "build"],
+  "typescript.validate.enable": true,
+  "javascript.validate.enable": true
+}

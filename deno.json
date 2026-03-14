@@ -1,0 +1,16 @@
+{
+  "imports": {
+    "hono": "npm:hono",
+    "hono/cors": "npm:hono/cors",
+    "hono/logger": "npm:hono/logger",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2"
+  },
+  "compilerOptions": {
+    "lib": ["deno.ns", "dom"],
+    "strict": true
+  },
+  "allowScripts": {
+    "allow": [],
+    "deny": ["npm:@swc/core@1.15.11", "npm:esbuild@0.25.12"]
+  }
+}
