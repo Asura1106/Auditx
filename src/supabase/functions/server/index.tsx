@@ -157,6 +157,7 @@ const REQUIRED_TEMPLATE_MARKERS = [
   'minutes of class committee meeting',
 ];
 const AUTO_REJECT_THRESHOLD = 0.5;
+const CATEGORY_MATCH_THRESHOLD = 0.7;
 
 const normalizeText = (value?: string | null) =>
   (value ?? '')
@@ -192,6 +193,8 @@ const termFrequency = (tokens: string[]) => {
   });
   return frequency;
 };
+
+const uniqueTokens = (value: string) => Array.from(new Set(tokenize(value)));
 
 const tfIdfCosineSimilarity = (left: string, right: string) => {
   const leftTokens = tokenize(left);
@@ -307,6 +310,45 @@ const computeTemplateChecklistMatch = (sourceText: string, checklist: string[]) 
   return { ratio: matched / checklist.length, missing };
 };
 
+const computeCategoryContentRelevance = (
+  sourceText: string,
+  fileCategory: string,
+  expectedCategoryName?: string | null,
+  checklist?: string[]
+) => {
+  const normalizedSource = normalizeText(sourceText);
+  if (!normalizedSource) {
+    return {
+      score: 0,
+      matchedKeywords: [] as string[],
+      missingKeywords: [] as string[],
+      referenceText: '',
+    };
+  }
+
+  const referenceParts = [fileCategory, expectedCategoryName ?? '', ...(checklist ?? [])]
+    .map((item) => normalizeText(item))
+    .filter(Boolean);
+
+  const referenceText = referenceParts.join(' ');
+  const referenceTokens = uniqueTokens(referenceText).filter((token) => token.length >= 4);
+
+  const matchedKeywords = referenceTokens.filter((token) => normalizedSource.includes(token));
+  const missingKeywords = referenceTokens.filter((token) => !normalizedSource.includes(token));
+
+  const keywordCoverage =
+    referenceTokens.length > 0 ? matchedKeywords.length / referenceTokens.length : 1;
+  const semanticScore = referenceText ? tfIdfCosineSimilarity(normalizedSource, referenceText) : 1;
+  const score = Number((keywordCoverage * 0.65 + semanticScore * 0.35).toFixed(4));
+
+  return {
+    score,
+    matchedKeywords,
+    missingKeywords,
+    referenceText,
+  };
+};
+
 const computeSimilarityDrivenRisk = (
   currentFeature: VerificationFeatureRow,
   bestFeature: VerificationFeatureRow | null,
@@ -359,7 +401,8 @@ const runVerificationForDocument = async (
   supabase: SupabaseClient,
   currentFile: FileRow,
   extractedTextOverride?: string | null,
-  templateChecklist?: string[]
+  templateChecklist?: string[],
+  expectedCategoryName?: string | null
 ) => {
   const currentFeature = extractVerificationFeatures(currentFile, extractedTextOverride);
 
@@ -421,6 +464,13 @@ const runVerificationForDocument = async (
   );
 
   const checklistMatch = computeTemplateChecklistMatch(currentFeature.progressive_text, templateChecklist ?? []);
+  const categoryRelevance = computeCategoryContentRelevance(
+    currentFeature.progressive_text,
+    currentFile.file_category,
+    expectedCategoryName,
+    templateChecklist ?? []
+  );
+
   if (checklistMatch.ratio < 0.6) {
     evaluation.riskScore += 2;
     evaluation.reasons.push(
@@ -433,8 +483,29 @@ const runVerificationForDocument = async (
     evaluation.reasons.push(`Template checklist partially matched (${(checklistMatch.ratio * 100).toFixed(0)}%).`);
   }
 
-  if (!evaluation.autoRejected) {
+  if (categoryRelevance.score < CATEGORY_MATCH_THRESHOLD) {
+    evaluation.riskScore += 4;
+    evaluation.reasons.push(
+      `Document content relevance to "${expectedCategoryName || currentFile.file_category}" is only ${(
+        categoryRelevance.score * 100
+      ).toFixed(0)}%.`
+    );
+  } else if (categoryRelevance.score < 0.85) {
+    evaluation.riskScore += 1;
+    evaluation.reasons.push(
+      `Document content partially matches "${expectedCategoryName || currentFile.file_category}" (${(
+        categoryRelevance.score * 100
+      ).toFixed(0)}%).`
+    );
+  }
+
+  const finalAutoRejected =
+    evaluation.autoRejected || categoryRelevance.score < CATEGORY_MATCH_THRESHOLD;
+
+  if (!finalAutoRejected) {
     evaluation.riskLevel = getRiskLevel(evaluation.riskScore);
+  } else {
+    evaluation.riskLevel = 'STRONG_FLAG';
   }
 
   const { data: resultRow, error: resultInsertError } = await supabase
@@ -460,7 +531,8 @@ const runVerificationForDocument = async (
     currentFeature,
     bestFile,
     bestSimilarity,
-    autoRejected: evaluation.autoRejected,
+    autoRejected: finalAutoRejected,
+    categoryRelevance,
     resultRow: resultRow as VerificationResultRow,
   };
 };
@@ -537,6 +609,7 @@ app.post('/make-server-b9eb9a31/files/upload', async (c) => {
       fileDescription,
       extractedText,
       templateChecklist,
+      expectedCategoryName,
       fileType,
       fileSize,
       filePath,
@@ -598,8 +671,10 @@ app.post('/make-server-b9eb9a31/files/upload', async (c) => {
       | {
           comparedDocumentId: string | null;
           similarity: number;
+          categoryRelevance: number;
           autoRejected: boolean;
           riskLevel: string;
+          reasons: string[];
         }
       | null = null;
 
@@ -608,7 +683,8 @@ app.post('/make-server-b9eb9a31/files/upload', async (c) => {
         supabase,
         inserted as FileRow,
         typeof extractedText === 'string' ? extractedText : null,
-        Array.isArray(templateChecklist) ? templateChecklist.filter((item) => typeof item === 'string') : []
+        Array.isArray(templateChecklist) ? templateChecklist.filter((item) => typeof item === 'string') : [],
+        typeof expectedCategoryName === 'string' ? expectedCategoryName : null
       );
 
       if (verification.autoRejected) {
@@ -624,9 +700,11 @@ app.post('/make-server-b9eb9a31/files/upload', async (c) => {
         await supabase.from('notifications').insert({
           user_id: inserted.user_id,
           type: 'rejection',
-          message: `Your file "${inserted.file_name}" was auto-rejected by similarity check (${(
+          message: `Your file "${inserted.file_name}" was auto-rejected by system verification. Similarity: ${(
             verification.bestSimilarity * 100
-          ).toFixed(2)}%). Please upload a fresh document.`,
+          ).toFixed(2)}%, category relevance: ${(
+            verification.categoryRelevance.score * 100
+          ).toFixed(2)}%. Please upload a correct document.`,
           read: false,
         });
       }
@@ -634,8 +712,14 @@ app.post('/make-server-b9eb9a31/files/upload', async (c) => {
       verificationSummary = {
         comparedDocumentId: verification.bestFile?.id ?? null,
         similarity: Number(verification.bestSimilarity.toFixed(4)),
+        categoryRelevance: verification.categoryRelevance.score,
         autoRejected: verification.autoRejected,
         riskLevel: verification.resultRow.risk_level,
+        reasons: Array.isArray(verification.resultRow.reasons)
+          ? verification.resultRow.reasons
+          : typeof verification.resultRow.reasons === 'string'
+          ? [verification.resultRow.reasons]
+          : [],
       };
     } catch (verificationError: unknown) {
       console.error('Auto verification failed:', getErrorMessage(verificationError));
@@ -659,7 +743,7 @@ app.post('/make-server-b9eb9a31/files/upload', async (c) => {
     return c.json({
       success: true,
       message: inserted.status === 'system_rejected'
-        ? 'File uploaded but auto-rejected by similarity check'
+        ? 'File uploaded but auto-rejected by system verification'
         : 'File uploaded successfully',
       file: inserted,
       verification: verificationSummary,
@@ -851,7 +935,7 @@ app.post('/make-server-b9eb9a31/verify/run', async (c) => {
       return c.json({ error: 'Access denied' }, 403);
     }
 
-    const { documentId, extractedText, templateChecklist } = await c.req.json();
+    const { documentId, extractedText, templateChecklist, expectedCategoryName } = await c.req.json();
     if (!documentId) {
       return c.json({ error: 'documentId is required' }, 400);
     }
@@ -874,7 +958,8 @@ app.post('/make-server-b9eb9a31/verify/run', async (c) => {
       supabase,
       currentFile as FileRow,
       typeof extractedText === 'string' ? extractedText : null,
-      Array.isArray(templateChecklist) ? templateChecklist.filter((item) => typeof item === 'string') : []
+      Array.isArray(templateChecklist) ? templateChecklist.filter((item) => typeof item === 'string') : [],
+      typeof expectedCategoryName === 'string' ? expectedCategoryName : null
     );
 
     if (verification.autoRejected && currentFile.status !== 'system_rejected') {
@@ -891,6 +976,7 @@ app.post('/make-server-b9eb9a31/verify/run', async (c) => {
       previousDocumentId: verification.bestFile?.id ?? null,
       autoRejected: verification.autoRejected,
       similarity: Number(verification.bestSimilarity.toFixed(4)),
+      categoryRelevance: verification.categoryRelevance.score,
     });
   } catch (error: unknown) {
     console.error('Verification run error:', getErrorMessage(error));

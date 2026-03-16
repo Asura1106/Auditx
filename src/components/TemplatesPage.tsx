@@ -153,14 +153,7 @@ export function TemplatesPage({ user }: TemplatesPageProps) {
               {filteredRecords.map((record) => (
                 <tr key={record.fileNumber} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/60 transition-colors">
                   <td className="px-4 py-3 font-semibold text-slate-900">{record.fileNumber}</td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-slate-900">{record.fileName}</div>
-                    {record.content.length > 0 ? (
-                      <div className="text-xs text-slate-500 mt-1">{record.content.join(' | ')}</div>
-                    ) : (
-                      <div className="text-xs text-slate-400 mt-1">No content checklist in master sheet</div>
-                    )}
-                  </td>
+                  <td className="px-4 py-3 font-medium text-slate-900">{record.fileName}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <button

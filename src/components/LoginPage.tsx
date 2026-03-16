@@ -3,6 +3,7 @@ import { supabase } from '../utils/supabase/client';
 import { isAllowedEmail, getAllowedUser } from '../utils/access';
 import collegeLogo from '../assets/college-logo.jpeg';
 import collegeCampus from '../assets/college-campus.png';
+import satelliteImage from '../assets/satellite.png';
 
 interface LoginPageProps {
   onLoginSuccess: (user: any) => void;
@@ -65,6 +66,13 @@ export function LoginPage({ onLoginSuccess, forcedError }: LoginPageProps) {
 
   return (
     <div className="min-h-screen flex">
+      <style>{`
+        @keyframes loginFloat {
+          0% { transform: translate3d(0, 0, 0) rotate(-8deg); }
+          50% { transform: translate3d(0, -14px, 0) rotate(-5deg); }
+          100% { transform: translate3d(0, 0, 0) rotate(-8deg); }
+        }
+      `}</style>
       {/* Left Side - Form */}
       <div className="flex-1 flex items-center justify-center bg-white p-8">
         <div className="w-full max-w-md">
@@ -132,11 +140,28 @@ export function LoginPage({ onLoginSuccess, forcedError }: LoginPageProps) {
       </div>
 
       {/* Right Side - Image/Illustration */}
-      <div className="hidden lg:flex flex-1 bg-white items-stretch justify-stretch p-0 overflow-hidden">
+      <div className="hidden lg:flex relative flex-1 bg-white items-stretch justify-stretch p-0 overflow-hidden">
         <img
           src={collegeCampus}
           alt="College campus"
           className="w-full h-full object-cover"
+        />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/10 via-transparent to-sky-200/10" />
+        <div
+          className="pointer-events-none absolute right-[8%] top-[10%] h-44 w-44 rounded-full"
+          style={{
+            background:
+              'radial-gradient(circle, rgba(96,165,250,0.30) 0%, rgba(168,85,247,0.18) 42%, rgba(255,255,255,0) 72%)',
+            filter: 'blur(16px)',
+          }}
+        />
+        <img
+          src={satelliteImage}
+          alt="Floating satellite"
+          className="pointer-events-none absolute right-[7%] top-[8%] w-40 drop-shadow-2xl select-none"
+          style={{
+            animation: 'loginFloat 4.6s ease-in-out infinite',
+          }}
         />
       </div>
     </div>

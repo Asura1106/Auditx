@@ -21,6 +21,12 @@ interface QueueItem {
   file: File;
 }
 
+interface UploadFeedback {
+  type: 'success' | 'error' | 'warning' | 'info';
+  message: string;
+  details?: string[];
+}
+
 interface User {
   id: string;
   email: string;
@@ -44,6 +50,7 @@ export function FormBasedUpload({ user }: FormBasedUploadProps) {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [feedback, setFeedback] = useState<UploadFeedback | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -56,12 +63,6 @@ export function FormBasedUpload({ user }: FormBasedUploadProps) {
     () => findQualityRecord(formData.recordNumber),
     [formData.recordNumber]
   );
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
 
   const sanitizePathPart = (value: string) => value.replace(/[^\w.-]/g, '_');
 
@@ -165,14 +166,19 @@ export function FormBasedUpload({ user }: FormBasedUploadProps) {
 
   const uploadAll = async () => {
     if (!user?.accessToken) {
-      alert('Login required.');
+      setFeedback({ type: 'error', message: 'Login required before uploading files.' });
       return;
     }
 
     setUploading(true);
     setUploadSuccess(false);
+    setFeedback(null);
 
     try {
+      const successMessages: string[] = [];
+      const rejectedMessages: string[] = [];
+      const rejectedReasons: string[] = [];
+
       for (const item of queue) {
         const filePath = [
           item.department,
@@ -185,7 +191,7 @@ export function FormBasedUpload({ user }: FormBasedUploadProps) {
           .upload(filePath, item.file, { upsert: false });
 
         if (storageError) {
-          alert(`Storage upload failed: ${storageError.message}`);
+          setFeedback({ type: 'error', message: `Storage upload failed: ${storageError.message}` });
           return;
         }
 
@@ -209,6 +215,7 @@ export function FormBasedUpload({ user }: FormBasedUploadProps) {
             body: JSON.stringify({
               fileName: `${item.record.fileNumber} - ${item.record.fileName}`,
               fileCategory: item.record.fileNumber,
+              expectedCategoryName: item.record.fileName,
               fileDescription: description,
               extractedText,
               templateChecklist: item.record.content,
@@ -225,33 +232,66 @@ export function FormBasedUpload({ user }: FormBasedUploadProps) {
 
         const result = await response.json();
         if (!response.ok) {
-          alert(`Upload failed for ${item.record.fileNumber}: ${result.error || 'Unknown error'}`);
+          setFeedback({
+            type: 'error',
+            message: `Upload failed for ${item.record.fileNumber}: ${result.error || 'Unknown error'}`,
+          });
           return;
         }
 
         if (result?.verification?.autoRejected) {
-          alert(
-            `${item.record.fileNumber} was auto-rejected (similarity ${(result.verification.similarity * 100).toFixed(
-              2
-            )}%).`
+          const details = Array.isArray(result.verification.reasons)
+            ? result.verification.reasons.filter((item: unknown) => typeof item === 'string')
+            : [];
+          rejectedMessages.push(
+            `${item.record.fileNumber} was auto-rejected. Similarity ${(
+              result.verification.similarity * 100
+            ).toFixed(2)}%, category relevance ${(
+              (result.verification.categoryRelevance ?? 0) * 100
+            ).toFixed(2)}%.`
           );
+          rejectedReasons.push(...details);
+          continue;
         } else if (result?.verification) {
-          alert(
-            `${item.record.fileNumber} passed system check (similarity ${(result.verification.similarity * 100).toFixed(
-              2
-            )}%). Sent to HoD review.`
+          successMessages.push(
+            `${item.record.fileNumber} passed system check. Similarity ${(
+              result.verification.similarity * 100
+            ).toFixed(2)}%, category relevance ${(
+              (result.verification.categoryRelevance ?? 0) * 100
+            ).toFixed(2)}%. Sent to HoD review.`
           );
         } else {
-          alert(`${item.record.fileNumber} uploaded. System check unavailable for this file.`);
+          successMessages.push(`${item.record.fileNumber} uploaded. System check unavailable for this file.`);
         }
       }
 
       setQueue([]);
-      setUploadSuccess(true);
-      setTimeout(() => setUploadSuccess(false), 3000);
+      if (successMessages.length > 0) {
+        setUploadSuccess(true);
+        setTimeout(() => setUploadSuccess(false), 3000);
+      }
+
+      if (rejectedMessages.length > 0 && successMessages.length > 0) {
+        setFeedback({
+          type: 'warning',
+          message: `${successMessages.join(' ')} ${rejectedMessages.join(' ')}`.trim(),
+          details: rejectedReasons,
+        });
+      } else if (rejectedMessages.length > 0) {
+        setFeedback({
+          type: 'warning',
+          message: rejectedMessages.join(' '),
+          details: rejectedReasons,
+        });
+      } else {
+        setFeedback({
+          type: 'success',
+          message: successMessages.join(' '),
+        });
+      }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unexpected error';
-      alert(`Upload failed: ${message}`);
+      setFeedback({ type: 'error', message: `Upload failed: ${message}` });
     } finally {
       setUploading(false);
     }
@@ -259,12 +299,28 @@ export function FormBasedUpload({ user }: FormBasedUploadProps) {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-        <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Quality Record Upload</h2>
-        <p className="text-sm text-slate-600 mt-1">
-          Upload only documents listed in the official quality record checklist.
-        </p>
-      </div>
+      {feedback ? (
+        <div
+          className={`rounded-2xl border px-4 py-3 text-sm shadow-sm ${
+            feedback.type === 'error'
+              ? 'border-red-200 bg-red-50 text-red-700'
+              : feedback.type === 'warning'
+              ? 'border-amber-200 bg-amber-50 text-amber-800'
+              : feedback.type === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              : 'border-blue-200 bg-blue-50 text-blue-700'
+          }`}
+        >
+          <div>{feedback.message}</div>
+          {feedback.details && feedback.details.length > 0 ? (
+            <ul className="mt-2 list-disc pl-5 space-y-1 text-xs">
+              {feedback.details.map((detail) => (
+                <li key={detail}>{detail}</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
@@ -287,21 +343,6 @@ export function FormBasedUpload({ user }: FormBasedUploadProps) {
                 ))}
               </select>
             </div>
-
-            {selectedRecord ? (
-              <div className="rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-4">
-                <p className="text-sm font-semibold text-blue-800">{selectedRecord.fileName}</p>
-                {selectedRecord.content.length > 0 ? (
-                  <ul className="text-xs text-blue-700 mt-2 list-disc pl-4 space-y-1">
-                    {selectedRecord.content.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-xs text-blue-700 mt-2">No mandatory content list in master sheet.</p>
-                )}
-              </div>
-            ) : null}
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Department *</label>
@@ -329,13 +370,6 @@ export function FormBasedUpload({ user }: FormBasedUploadProps) {
                   <Upload className="w-4 h-4" />
                   Choose File
                 </button>
-                {formData.file ? (
-                  <div className="text-sm text-slate-600 flex items-center gap-2 min-w-0">
-                    <FileText className="w-4 h-4" />
-                    <span className="truncate">{formData.file.name}</span>
-                    <span className="text-slate-400">({formatFileSize(formData.file.size)})</span>
-                  </div>
-                ) : null}
               </div>
               <input
                 ref={fileInputRef}
@@ -426,7 +460,12 @@ export function FormBasedUpload({ user }: FormBasedUploadProps) {
                   <button
                     onClick={uploadAll}
                     disabled={uploading}
-                    className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:brightness-110 transition disabled:bg-slate-400 shadow-sm"
+                    className="w-full px-4 py-2.5 rounded-xl transition shadow-sm font-medium disabled:cursor-not-allowed"
+                    style={{
+                      backgroundColor: uploading ? '#e2e8f0' : '#2563eb',
+                      color: uploading ? '#334155' : '#ffffff',
+                      border: uploading ? '1px solid #cbd5e1' : '1px solid #2563eb',
+                    }}
                   >
                     {uploading ? 'Uploading...' : 'Upload All'}
                   </button>
