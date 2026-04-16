@@ -8,7 +8,7 @@ interface User {
   name: string;
   accessToken: string;
   role: 'staff' | 'hod' | 'principal';
-  department: 'CSE' | 'IT' | 'ALL';
+  department: 'CSE' | 'IT' | 'BIO' | 'CHEM' | 'AIDS' | 'MECH' | 'ALL';
 }
 
 interface AuditFile {
@@ -17,11 +17,11 @@ interface AuditFile {
 }
 
 interface AuditFilesDetailsProps {
-  onViewAllFiles: () => void;
+  onOpenCategory: (category: string) => void;
   user?: User;
 }
 
-export function AuditFilesDetails({ onViewAllFiles, user }: AuditFilesDetailsProps) {
+export function AuditFilesDetails({ onOpenCategory, user }: AuditFilesDetailsProps) {
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [auditFiles, setAuditFiles] = useState<AuditFile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,7 +84,7 @@ export function AuditFilesDetails({ onViewAllFiles, user }: AuditFilesDetailsPro
             {auditFiles.map((file, index) => (
               <button
                 key={index}
-                onClick={onViewAllFiles}
+                onClick={() => onOpenCategory(file.name)}
                 onMouseEnter={() => setHoveredCard(file.name)}
                 onMouseLeave={() => setHoveredCard(null)}
                 className={`
@@ -170,3 +170,4 @@ export function AuditFilesDetails({ onViewAllFiles, user }: AuditFilesDetailsPro
     </div>
   );
 }
+

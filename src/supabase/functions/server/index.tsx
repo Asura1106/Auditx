@@ -14,7 +14,7 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
 type UserRole = 'staff' | 'hod' | 'principal';
-type Department = 'CSE' | 'IT' | 'ALL';
+type Department = 'CSE' | 'IT' | 'BIO' | 'CHEM' | 'AIDS' | 'MECH' | 'ALL';
 
 const ALLOWED_USERS: Record<string, { role: UserRole; department: Department; name: string }> = {
   'principalspcet@gmail.com': { role: 'principal', department: 'ALL', name: 'Principal' },
@@ -24,7 +24,15 @@ const ALLOWED_USERS: Record<string, { role: UserRole; department: Department; na
   'itstaff-1@gmail.com': { role: 'staff', department: 'IT', name: 'IT Staff 1' },
   'itstaff-2@gmail.com': { role: 'staff', department: 'IT', name: 'IT Staff 2' },
   'itstaff-3@gmail.com': { role: 'staff', department: 'IT', name: 'IT Staff 3' },
+  'biostaff-1@gmail.com': { role: 'staff', department: 'BIO', name: 'Bio Staff 1' },
+  'mechstaff-1@gmail.com': { role: 'staff', department: 'MECH', name: 'Mech Staff 1' },
+  'chemstaff-1@gmail.com': { role: 'staff', department: 'CHEM', name: 'Chem Staff 1' },
+  'aidsstaff-1@gmail.com': { role: 'staff', department: 'AIDS', name: 'AIDS Staff 1' },
   'csehod@gmail.com': { role: 'hod', department: 'CSE', name: 'CSE HOD' },
+  'chemhod@gmail.com': { role: 'hod', department: 'CHEM', name: 'Chem HOD' },
+  'aidshod@gmail.com': { role: 'hod', department: 'AIDS', name: 'AIDS HOD' },
+  'mechhod@gmail.com': { role: 'hod', department: 'MECH', name: 'Mech HOD' },
+  'biohod@gmail.com': { role: 'hod', department: 'BIO', name: 'Bio HOD' },
   'ithod@gmail.com': { role: 'hod', department: 'IT', name: 'IT HOD' },
 };
 
@@ -51,6 +59,7 @@ type FileRow = {
   status: string;
   uploaded_by: string | null;
   uploaded_at: string;
+  updated_at?: string | null;
 };
 
 type NotificationRow = {
@@ -101,6 +110,7 @@ const mapFileRow = (row: FileRow) => ({
   department: row.department,
   status: row.status,
   uploadedAt: row.uploaded_at,
+  updatedAt: row.updated_at ?? row.uploaded_at,
   uploadedBy: row.uploaded_by,
 });
 
@@ -148,16 +158,66 @@ type VerificationResultRow = {
   risk_score: number;
   risk_level: VerificationRiskLevel;
   reasons: string[] | string;
+  duplicate_matches?: Array<{
+    documentId: string;
+    similarity: number;
+    fileName: string;
+    fileCategory: string;
+    department: string;
+    uploadedAt: string;
+  }> | string;
+  template_match_score?: number;
+  category_relevance_score?: number;
   created_at: string;
 };
 
-const REQUIRED_TEMPLATE_MARKERS = [
-  'department of computer science and engineering',
-  'circular',
-  'minutes of class committee meeting',
-];
-const AUTO_REJECT_THRESHOLD = 0.5;
-const CATEGORY_MATCH_THRESHOLD = 0.7;
+type TemplateRuleRow = {
+  category: string;
+  doc_type: string;
+  required_markers: string[] | null;
+  reference_text: string | null;
+  minimum_marker_match: number | null;
+  minimum_relevance: number | null;
+  active: boolean;
+};
+
+const SUSPICIOUS_DUPLICATE_THRESHOLD = 0.7;
+const NEAR_DUPLICATE_REJECT_THRESHOLD = 0.9;
+const FALLBACK_MIN_MARKER_MATCH = 0.6;
+const FALLBACK_MIN_RELEVANCE = 0.7;
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024; // 8 MB
+const ALLOWED_UPLOAD_MIME_TYPES = new Set([
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
+  'image/png',
+  'image/jpeg',
+]);
+const ALLOWED_UPLOAD_EXTENSIONS = ['.pdf', '.doc', '.docx', '.txt', '.png', '.jpg', '.jpeg'];
+const GENERIC_ACADEMIC_TERMS = new Set([
+  'academic',
+  'assessment',
+  'course',
+  'courses',
+  'department',
+  'document',
+  'documents',
+  'faculty',
+  'institution',
+  'internal',
+  'meeting',
+  'minutes',
+  'record',
+  'records',
+  'report',
+  'reports',
+  'semester',
+  'student',
+  'students',
+  'subject',
+  'syllabus',
+]);
 
 const normalizeText = (value?: string | null) =>
   (value ?? '')
@@ -249,7 +309,7 @@ const extractVerificationFeatures = (
       .join(' ')
   );
 
-  const headerOk = REQUIRED_TEMPLATE_MARKERS.every((marker) => source.includes(marker));
+  const headerOk = source.includes('meeting') || source.includes('minutes');
   const circularOk = source.includes('circular');
   const minutesOk = source.includes('minutes');
   const agendaCount = countMatches(source, /\bagenda\b/g);
@@ -293,108 +353,152 @@ const getRiskLevel = (score: number): VerificationRiskLevel => {
   return 'PASS';
 };
 
-const computeTemplateChecklistMatch = (sourceText: string, checklist: string[]) => {
-  if (!checklist || checklist.length === 0) return { ratio: 1, missing: [] as string[] };
-  const normalizedSource = normalizeText(sourceText);
-  const missing: string[] = [];
-
-  checklist.forEach((item) => {
-    const token = normalizeText(item);
-    if (!token) return;
-    if (!normalizedSource.includes(token)) {
-      missing.push(item);
-    }
-  });
-
-  const matched = checklist.length - missing.length;
-  return { ratio: matched / checklist.length, missing };
-};
-
-const computeCategoryContentRelevance = (
-  sourceText: string,
+const loadTemplateRule = async (
+  supabase: SupabaseClient,
   fileCategory: string,
   expectedCategoryName?: string | null,
-  checklist?: string[]
+  templateChecklist?: string[]
 ) => {
-  const normalizedSource = normalizeText(sourceText);
-  if (!normalizedSource) {
-    return {
-      score: 0,
-      matchedKeywords: [] as string[],
-      missingKeywords: [] as string[],
-      referenceText: '',
-    };
+  const { data: templateRow, error } = await supabase
+    .from('document_templates')
+    .select('*')
+    .eq('category', fileCategory)
+    .eq('active', true)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Template lookup failed, using fallback checklist:', error.message);
   }
 
-  const referenceParts = [fileCategory, expectedCategoryName ?? '', ...(checklist ?? [])]
-    .map((item) => normalizeText(item))
-    .filter(Boolean);
-
-  const referenceText = referenceParts.join(' ');
-  const referenceTokens = uniqueTokens(referenceText).filter((token) => token.length >= 4);
-
-  const matchedKeywords = referenceTokens.filter((token) => normalizedSource.includes(token));
-  const missingKeywords = referenceTokens.filter((token) => !normalizedSource.includes(token));
-
-  const keywordCoverage =
-    referenceTokens.length > 0 ? matchedKeywords.length / referenceTokens.length : 1;
-  const semanticScore = referenceText ? tfIdfCosineSimilarity(normalizedSource, referenceText) : 1;
-  const score = Number((keywordCoverage * 0.65 + semanticScore * 0.35).toFixed(4));
+  const fromDb = (templateRow as TemplateRuleRow | null) ?? null;
+  const fallbackMarkers = (templateChecklist ?? []).filter((item) => typeof item === 'string');
+  const fallbackReference = [expectedCategoryName ?? '', ...fallbackMarkers].join(' ').trim();
+  const dbMarkers = (fromDb?.required_markers ?? []).filter(
+    (item) => typeof item === 'string' && item.trim().length > 0
+  );
 
   return {
-    score,
-    matchedKeywords,
-    missingKeywords,
-    referenceText,
+    category: fromDb?.category ?? fileCategory,
+    docType: fromDb?.doc_type ?? 'GENERAL',
+    requiredMarkers: dbMarkers.length > 0 ? dbMarkers : fallbackMarkers,
+    referenceText: (fromDb?.reference_text ?? '').trim() || fallbackReference,
+    minimumMarkerMatch: Number(fromDb?.minimum_marker_match ?? FALLBACK_MIN_MARKER_MATCH),
+    minimumRelevance: Number(fromDb?.minimum_relevance ?? FALLBACK_MIN_RELEVANCE),
   };
 };
 
-const computeSimilarityDrivenRisk = (
-  currentFeature: VerificationFeatureRow,
-  bestFeature: VerificationFeatureRow | null,
-  bestFile: FileRow | null,
-  currentFile: FileRow,
-  bestSimilarity: number
-) => {
-  let riskScore = 0;
-  const reasons: string[] = [];
-
-  if ((currentFeature.progressive_text || '').length < 30) {
-    riskScore += 4;
-    reasons.push('Extracted document text is too short for reliable verification.');
+const computeTemplateMarkerMatch = (sourceText: string, requiredMarkers: string[]) => {
+  if (!requiredMarkers || requiredMarkers.length === 0) {
+    return { ratio: 1, found: [] as string[], missing: [] as string[] };
   }
 
-  if (!currentFeature.header_ok || !currentFeature.circular_ok || !currentFeature.minutes_ok) {
-    riskScore += 3;
-    reasons.push('Missing mandatory CCM template markers.');
-  }
+  const normalizedSource = normalizeText(sourceText);
+  const found: string[] = [];
+  const missing: string[] = [];
 
-  if (bestFeature && currentFeature.content_fingerprint === bestFeature.content_fingerprint) {
-    riskScore += 2;
-    reasons.push('Structural fingerprint matches an existing document.');
-  }
-
-  if (bestSimilarity > AUTO_REJECT_THRESHOLD) {
-    riskScore += 4;
-    reasons.push(`Similarity ${bestSimilarity.toFixed(4)} is above 0.50 threshold.`);
-  } else if (bestSimilarity > 0) {
-    riskScore += 1;
-    reasons.push(`Similarity ${bestSimilarity.toFixed(4)} is within allowed range (<= 0.50).`);
-  }
-
-  if (bestFile && bestSimilarity >= 0.85) {
-    const gapDays = diffDays(currentFile.uploaded_at, bestFile.uploaded_at);
-    if (gapDays >= 20) {
-      riskScore += 2;
-      reasons.push('Large time gap with highly similar progression text.');
+  requiredMarkers.forEach((marker) => {
+    const normalizedMarker = normalizeText(marker);
+    if (!normalizedMarker) return;
+    if (normalizedSource.includes(normalizedMarker)) {
+      found.push(marker);
+    } else {
+      missing.push(marker);
     }
+  });
+
+  const ratio = found.length / requiredMarkers.length;
+  return { ratio, found, missing };
+};
+
+const sanitizeReferenceText = (value: string) => {
+  const filteredTokens = tokenize(value).filter((token) => !GENERIC_ACADEMIC_TERMS.has(token));
+  return filteredTokens.join(' ');
+};
+
+const computeCategoryRelevanceFromTemplate = (
+  sourceText: string,
+  referenceText: string,
+  markerRatio: number
+) => {
+  const normalizedSource = normalizeText(sourceText);
+  if (!normalizedSource) {
+    return { score: 0, semanticScore: 0, markerRatio };
   }
 
-  const autoRejected =
-    bestSimilarity > AUTO_REJECT_THRESHOLD || (currentFeature.progressive_text || '').length < 30;
-  const riskLevel = autoRejected ? 'STRONG_FLAG' : getRiskLevel(riskScore);
+  const sanitizedReference = sanitizeReferenceText(referenceText);
+  if (!sanitizedReference) {
+    return { score: markerRatio, semanticScore: markerRatio, markerRatio };
+  }
 
-  return { riskScore, riskLevel, reasons, autoRejected };
+  const semanticScore = tfIdfCosineSimilarity(normalizedSource, sanitizedReference);
+  const score = Number((semanticScore * 0.8 + markerRatio * 0.2).toFixed(4));
+  return { score, semanticScore: Number(semanticScore.toFixed(4)), markerRatio };
+};
+
+const findDuplicateMatches = async (
+  supabase: SupabaseClient,
+  currentFile: FileRow,
+  currentFeature: VerificationFeatureRow
+) => {
+  const { data: approvedFiles, error: filesError } = await supabase
+    .from('files')
+    .select('*')
+    .eq('status', 'approved')
+    .neq('id', currentFile.id)
+    .order('uploaded_at', { ascending: false })
+    .limit(500);
+
+  if (filesError) {
+    throw new Error('Failed to load approved documents for duplicate detection.');
+  }
+
+  const candidates = (approvedFiles ?? []) as FileRow[];
+  const candidateIds = candidates.map((row) => row.id);
+  const featureMap = new Map<string, VerificationFeatureRow>();
+
+  if (candidateIds.length > 0) {
+    const { data: featureRows, error: featureError } = await supabase
+      .from('document_features')
+      .select('*')
+      .in('document_id', candidateIds);
+
+    if (featureError) {
+      throw new Error('Failed to load document features for duplicate detection.');
+    }
+
+    ((featureRows ?? []) as VerificationFeatureRow[]).forEach((row) => {
+      featureMap.set(row.document_id, row);
+    });
+  }
+
+  const duplicateMatches = candidates
+    .map((candidate) => {
+      const candidateFeature =
+        featureMap.get(candidate.id) ?? extractVerificationFeatures(candidate, null);
+      const similarity = tfIdfCosineSimilarity(
+        currentFeature.progressive_text,
+        candidateFeature.progressive_text
+      );
+
+      return {
+        documentId: candidate.id,
+        similarity: Number(similarity.toFixed(4)),
+        fileName: candidate.file_name,
+        fileCategory: candidate.file_category,
+        department: candidate.department,
+        uploadedAt: candidate.uploaded_at,
+        fingerprintMatch:
+          currentFeature.content_fingerprint.length > 0 &&
+          currentFeature.content_fingerprint === candidateFeature.content_fingerprint,
+      };
+    })
+    .filter((match) => match.similarity >= SUSPICIOUS_DUPLICATE_THRESHOLD || match.fingerprintMatch)
+    .sort((a, b) => b.similarity - a.similarity);
+
+  const topMatches = duplicateMatches.slice(0, 5);
+  const bestMatch = topMatches[0] ?? null;
+
+  return { duplicateMatches: topMatches, bestMatch };
 };
 
 const runVerificationForDocument = async (
@@ -405,6 +509,9 @@ const runVerificationForDocument = async (
   expectedCategoryName?: string | null
 ) => {
   const currentFeature = extractVerificationFeatures(currentFile, extractedTextOverride);
+  const reasons: string[] = [];
+  let riskScore = 0;
+  let autoRejected = false;
 
   const { error: featureUpsertError } = await supabase
     .from('document_features')
@@ -422,118 +529,140 @@ const runVerificationForDocument = async (
     );
   }
 
-  const { data: candidateFiles, error: candidateFilesError } = await supabase
-    .from('files')
-    .select('*')
-    .eq('file_category', currentFile.file_category)
-    .neq('id', currentFile.id)
-    .order('uploaded_at', { ascending: false })
-    .limit(100);
-
-  if (candidateFilesError) {
-    throw new Error('Failed to load candidate documents for similarity check.');
+  if ((currentFeature.progressive_text || '').length < 30) {
+    riskScore += 4;
+    autoRejected = true;
+    reasons.push('Extracted document text is too short for reliable verification.');
   }
 
-  let bestSimilarity = 0;
-  let bestFile: FileRow | null = null;
-  let bestFeature: VerificationFeatureRow | null = null;
-
-  for (const candidate of (candidateFiles ?? []) as FileRow[]) {
-    const { data: fromDbFeature } = await supabase
-      .from('document_features')
-      .select('*')
-      .eq('document_id', candidate.id)
-      .maybeSingle();
-
-    const candidateFeature = (fromDbFeature as VerificationFeatureRow | null) ?? extractVerificationFeatures(candidate);
-    const similarity = tfIdfCosineSimilarity(currentFeature.progressive_text, candidateFeature.progressive_text);
-
-    if (similarity > bestSimilarity) {
-      bestSimilarity = similarity;
-      bestFile = candidate;
-      bestFeature = candidateFeature;
-    }
-  }
-
-  const evaluation = computeSimilarityDrivenRisk(
-    currentFeature,
-    bestFeature,
-    bestFile,
-    currentFile,
-    bestSimilarity
-  );
-
-  const checklistMatch = computeTemplateChecklistMatch(currentFeature.progressive_text, templateChecklist ?? []);
-  const categoryRelevance = computeCategoryContentRelevance(
-    currentFeature.progressive_text,
+  const templateRule = await loadTemplateRule(
+    supabase,
     currentFile.file_category,
     expectedCategoryName,
-    templateChecklist ?? []
+    templateChecklist
+  );
+  const markerMatch = computeTemplateMarkerMatch(
+    currentFeature.progressive_text,
+    templateRule.requiredMarkers
+  );
+  const categoryRelevance = computeCategoryRelevanceFromTemplate(
+    currentFeature.progressive_text,
+    templateRule.referenceText,
+    markerMatch.ratio
   );
 
-  if (checklistMatch.ratio < 0.6) {
-    evaluation.riskScore += 2;
-    evaluation.reasons.push(
-      `Template checklist match is low (${(checklistMatch.ratio * 100).toFixed(0)}%). Missing: ${checklistMatch.missing.join(
-        ', '
-      )}`
+  if (markerMatch.ratio < templateRule.minimumMarkerMatch) {
+    riskScore += 4;
+    autoRejected = true;
+    reasons.push(
+      `Template marker match is low (${(markerMatch.ratio * 100).toFixed(0)}%). Missing: ${
+        markerMatch.missing.join(', ') || 'required markers'
+      }`
     );
-  } else if (checklistMatch.ratio < 1) {
-    evaluation.riskScore += 1;
-    evaluation.reasons.push(`Template checklist partially matched (${(checklistMatch.ratio * 100).toFixed(0)}%).`);
+  } else if (markerMatch.ratio < 1) {
+    riskScore += 1;
+    reasons.push(`Template marker match is partial (${(markerMatch.ratio * 100).toFixed(0)}%).`);
   }
 
-  if (categoryRelevance.score < CATEGORY_MATCH_THRESHOLD) {
-    evaluation.riskScore += 4;
-    evaluation.reasons.push(
+  if (categoryRelevance.score < templateRule.minimumRelevance) {
+    riskScore += 4;
+    autoRejected = true;
+    reasons.push(
       `Document content relevance to "${expectedCategoryName || currentFile.file_category}" is only ${(
         categoryRelevance.score * 100
       ).toFixed(0)}%.`
     );
   } else if (categoryRelevance.score < 0.85) {
-    evaluation.riskScore += 1;
-    evaluation.reasons.push(
+    riskScore += 1;
+    reasons.push(
       `Document content partially matches "${expectedCategoryName || currentFile.file_category}" (${(
         categoryRelevance.score * 100
       ).toFixed(0)}%).`
     );
   }
 
-  const finalAutoRejected =
-    evaluation.autoRejected || categoryRelevance.score < CATEGORY_MATCH_THRESHOLD;
+  const { duplicateMatches, bestMatch } = await findDuplicateMatches(
+    supabase,
+    currentFile,
+    currentFeature
+  );
 
-  if (!finalAutoRejected) {
-    evaluation.riskLevel = getRiskLevel(evaluation.riskScore);
-  } else {
-    evaluation.riskLevel = 'STRONG_FLAG';
+  if (bestMatch && bestMatch.similarity >= NEAR_DUPLICATE_REJECT_THRESHOLD) {
+    riskScore += 5;
+    autoRejected = true;
+    reasons.push(
+      `Near-duplicate detected with document ${bestMatch.documentId} (${(
+        bestMatch.similarity * 100
+      ).toFixed(2)}%).`
+    );
+  } else if (bestMatch && bestMatch.similarity >= SUSPICIOUS_DUPLICATE_THRESHOLD) {
+    riskScore += 2;
+    reasons.push(
+      `Possible duplicate upload across categories. Most similar document: ${bestMatch.documentId} (${(
+        bestMatch.similarity * 100
+      ).toFixed(2)}%).`
+    );
   }
 
-  const { data: resultRow, error: resultInsertError } = await supabase
+  if (
+    bestMatch &&
+    bestMatch.similarity >= 0.85 &&
+    bestMatch.uploadedAt &&
+    diffDays(currentFile.uploaded_at, bestMatch.uploadedAt) >= 20
+  ) {
+    riskScore += 1;
+    reasons.push('Large time gap with highly similar approved document.');
+  }
+
+  const riskLevel = autoRejected ? 'STRONG_FLAG' : getRiskLevel(riskScore);
+
+  const verificationInsertPayload = {
+    document_id: currentFile.id,
+    compared_document_id: bestMatch?.documentId ?? null,
+    progression_similarity: Number((bestMatch?.similarity ?? 0).toFixed(4)),
+    risk_score: riskScore,
+    risk_level: riskLevel,
+    reasons,
+    duplicate_matches: duplicateMatches,
+    template_match_score: Number(markerMatch.ratio.toFixed(4)),
+    category_relevance_score: Number(categoryRelevance.score.toFixed(4)),
+  };
+
+  let resultRow: VerificationResultRow | null = null;
+  const { data: enhancedResult, error: enhancedInsertError } = await supabase
     .from('verification_results')
-    .insert({
-      document_id: currentFile.id,
-      compared_document_id: bestFile?.id ?? null,
-      progression_similarity: Number(bestSimilarity.toFixed(4)),
-      risk_score: evaluation.riskScore,
-      risk_level: evaluation.riskLevel,
-      reasons: evaluation.reasons,
-    })
+    .insert(verificationInsertPayload)
     .select('*')
     .single();
 
-  if (resultInsertError) {
-    throw new Error(
-      `Failed to save verification result: ${resultInsertError.message}. Ensure table public.verification_results exists and service role can insert.`
-    );
+  if (enhancedInsertError) {
+    const { duplicate_matches, template_match_score, category_relevance_score, ...legacyPayload } =
+      verificationInsertPayload;
+    const { data: legacyResult, error: legacyInsertError } = await supabase
+      .from('verification_results')
+      .insert(legacyPayload)
+      .select('*')
+      .single();
+
+    if (legacyInsertError) {
+      throw new Error(
+        `Failed to save verification result: ${legacyInsertError.message}. Ensure table public.verification_results exists and service role can insert.`
+      );
+    }
+    resultRow = legacyResult as VerificationResultRow;
+  } else {
+    resultRow = enhancedResult as VerificationResultRow;
   }
 
   return {
     currentFeature,
-    bestFile,
-    bestSimilarity,
-    autoRejected: finalAutoRejected,
+    bestFile: bestMatch ? ({ id: bestMatch.documentId } as FileRow) : null,
+    bestSimilarity: bestMatch?.similarity ?? 0,
+    duplicateMatches,
+    markerMatchScore: markerMatch.ratio,
+    autoRejected,
     categoryRelevance,
-    resultRow: resultRow as VerificationResultRow,
+    resultRow,
   };
 };
 
@@ -631,9 +760,47 @@ app.post('/make-server-b9eb9a31/files/upload', async (c) => {
       return c.json({ error: 'File name and category are required' }, 400);
     }
 
+    const parsedFileSize = Number(fileSize ?? 0);
+    if (!Number.isFinite(parsedFileSize) || parsedFileSize <= 0) {
+      return c.json({ error: 'Invalid file size' }, 400);
+    }
+    if (parsedFileSize > MAX_UPLOAD_BYTES) {
+      return c.json(
+        {
+          error: `File exceeds upload limit of ${Math.floor(MAX_UPLOAD_BYTES / (1024 * 1024))} MB`,
+        },
+        400
+      );
+    }
+
+    const normalizedFileType = String(fileType ?? '').toLowerCase().trim();
+    const normalizedFilePath = String(filePath ?? '').toLowerCase();
+    const hasAllowedMime = ALLOWED_UPLOAD_MIME_TYPES.has(normalizedFileType);
+    const hasAllowedExtension = ALLOWED_UPLOAD_EXTENSIONS.some((extension) =>
+      normalizedFilePath.endsWith(extension)
+    );
+    if (!hasAllowedMime && !hasAllowedExtension) {
+      return c.json(
+        {
+          error:
+            'Unsupported file type. Allowed: PDF, DOC, DOCX, TXT, PNG, JPG, JPEG.',
+        },
+        400
+      );
+    }
+
     const finalDepartment =
       profile.role === 'principal'
-        ? (department === 'CSE' || department === 'IT' ? department : 'ALL')
+        ? (
+            department === 'CSE' ||
+            department === 'IT' ||
+            department === 'BIO' ||
+            department === 'CHEM' ||
+            department === 'AIDS' ||
+            department === 'MECH'
+              ? department
+              : 'ALL'
+          )
         : profile.department;
 
     const fileData = {
@@ -641,8 +808,8 @@ app.post('/make-server-b9eb9a31/files/upload', async (c) => {
       file_name: fileName,
       file_category: fileCategory,
       file_description: fileDescription || '',
-      file_type: fileType || 'application/pdf',
-      file_size: fileSize || 0,
+      file_type: normalizedFileType || 'application/pdf',
+      file_size: parsedFileSize,
       file_path: filePath || '',
       file_bucket: fileBucket || '',
       student_name: studentName || null,
@@ -688,9 +855,18 @@ app.post('/make-server-b9eb9a31/files/upload', async (c) => {
       );
 
       if (verification.autoRejected) {
+        if (inserted.file_bucket && inserted.file_path) {
+          const { error: removeError } = await supabase.storage
+            .from(inserted.file_bucket)
+            .remove([inserted.file_path]);
+          if (removeError) {
+            console.error('Auto-reject storage cleanup failed:', removeError);
+          }
+        }
+
         const { data: updatedRejectedFile } = await supabase
           .from('files')
-          .update({ status: 'system_rejected' })
+          .update({ status: 'system_rejected', file_path: null, file_bucket: null, file_size: 0 })
           .eq('id', inserted.id)
           .select('*')
           .single();
@@ -1650,3 +1826,4 @@ app.get('/make-server-b9eb9a31/files/list', async (c) => {
 });
 
 Deno.serve(app.fetch);
+

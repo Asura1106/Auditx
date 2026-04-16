@@ -10,7 +10,7 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { projectId } from '../utils/supabase/info';
 
 interface Notification {
@@ -28,7 +28,7 @@ interface NavbarProps {
     name: string;
     accessToken: string;
     role: 'staff' | 'hod' | 'principal';
-    department: 'CSE' | 'IT' | 'ALL';
+    department: 'CSE' | 'IT' | 'BIO' | 'CHEM' | 'AIDS' | 'MECH' | 'ALL';
   };
   onLogout?: () => void;
   notifications?: Notification[];
@@ -39,15 +39,20 @@ export function Navbar({ user, onLogout, notifications = [] }: NavbarProps) {
   const [showHelpMenu, setShowHelpMenu] = useState(false);
   const [showNotifMenu, setShowNotifMenu] = useState(false);
   const [showToolsMenu, setShowToolsMenu] = useState(false);
-
   const [daysLeft, setDaysLeft] = useState<number | null>(null);
-  const [auditTitle, setAuditTitle] = useState<string>('Upcoming Audit');
+  const [auditTitle, setAuditTitle] = useState('Upcoming Audit');
   const [auditDeadline, setAuditDeadline] = useState<Date | null>(null);
+  const [seenNotificationIds, setSeenNotificationIds] = useState<Record<string, true>>({});
 
   const userRef = useRef<HTMLDivElement>(null);
   const helpRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
+
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => !n.read && !seenNotificationIds[n.id]).length,
+    [notifications, seenNotificationIds]
+  );
 
   const closeOtherMenus = (key: 'user' | 'help' | 'notif' | 'tools') => {
     setShowUserMenu(key === 'user' ? (v) => !v : false);
@@ -110,174 +115,161 @@ export function Navbar({ user, onLogout, notifications = [] }: NavbarProps) {
     .toUpperCase()
     .slice(0, 2);
 
-  return (
-    <nav className="bg-white border-b border-gray-200 sticky top-0 z-40">
-      <div className="flex items-center justify-between px-5 py-3">
-        <div className="flex items-center gap-6 min-w-0 overflow-hidden">
-          <h1 className="text-[38px] leading-none font-semibold whitespace-nowrap text-gray-900">
-            Academic Audit System
-          </h1>
+  const roleLabel = user?.role ? user.role.toUpperCase() : 'STAFF';
+  const loginName = user?.email ? user.email.split('@')[0] : user?.name || 'user';
 
-          <div className="hidden lg:flex items-center gap-3 text-sm min-w-0">
-            <div className="flex items-center gap-1 text-gray-500 uppercase text-xs">
-              ORGANIZATION
-              <span className="text-gray-800 font-medium normal-case ml-1">SPCET</span>
-              <ChevronDown className="w-4 h-4 text-gray-500" />
-            </div>
-            <div className="flex items-center gap-1 text-gray-500 uppercase text-xs min-w-0">
-              STAFF
-              <span className="text-gray-800 font-medium normal-case ml-1 truncate max-w-[240px]">
-                {user?.name || 'User'} {user?.department && user.department !== 'ALL' ? `- ${user.department}` : ''}
+  const getNotificationIcon = (type: Notification['type']) => {
+    if (type === 'rejection') return <XCircle className="w-4 h-4 text-red-500 mt-0.5" />;
+    if (type === 'approval') return <CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5" />;
+    return <Clock className="w-4 h-4 text-blue-500 mt-0.5" />;
+  };
+
+  return (
+    <header className="topbar sticky top-0 z-40">
+      <div className="topbar-inner">
+        <div className="topbar-left">
+          <h1 className="topbar-title">Academic Audit System</h1>
+
+          <div className="topbar-meta">
+            <button className="topbar-chip" type="button">
+              <span className="topbar-chip-label">Organization</span>
+              <span className="topbar-chip-value">SPCET</span>
+              <ChevronDown className="w-3.5 h-3.5" />
+            </button>
+
+            <button className="topbar-chip topbar-chip-user" type="button">
+              <span className="topbar-chip-label">{roleLabel}</span>
+              <span className="topbar-chip-value">
+                {loginName}
+                {user?.department && user.department !== 'ALL' ? ` - ${user.department}` : ''}
               </span>
-              <ChevronDown className="w-4 h-4 text-gray-500" />
-            </div>
-            <div className="hidden xl:flex items-center gap-1 text-gray-500 text-xs">
-              <Clock className="w-4 h-4" />
-              <span className="normal-case text-gray-700">
+              <ChevronDown className="w-3.5 h-3.5" />
+            </button>
+
+            <div className="topbar-chip topbar-chip-timer">
+              <Clock className="w-3.5 h-3.5" />
+              <span className="topbar-chip-value">
                 {auditTitle}: {daysLeft === null ? 'Set by principal' : `${daysLeft} day(s) left`}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 flex-shrink-0">
+        <div className="topbar-actions">
           <div className="relative" ref={helpRef}>
             <button
               type="button"
               onClick={() => closeOtherMenus('help')}
-              className="p-2 rounded-full hover:bg-gray-100 text-gray-600"
+              className="topbar-icon-btn"
               aria-label="Help"
             >
               <HelpCircle className="w-5 h-5" />
             </button>
-            {showHelpMenu && (
-              <div
-                className="absolute right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50"
-                style={{ width: '460px', maxWidth: '95vw' }}
-              >
-                <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200">
-                  <h3 className="text-sm font-semibold text-gray-900">Help</h3>
-                  <button
-                    type="button"
-                    onClick={() => setShowHelpMenu(false)}
-                    className="p-1 rounded hover:bg-gray-100"
-                  >
-                    <X className="w-4 h-4 text-gray-600" />
+            {showHelpMenu ? (
+              <div className="topbar-dropdown" style={{ width: 'min(520px, calc(100vw - 24px))' }}>
+                <div className="topbar-dropdown-header">
+                  <h3>Help</h3>
+                  <button type="button" onClick={() => setShowHelpMenu(false)} className="topbar-close">
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
-                <div className="px-4 py-3 text-sm text-gray-700">
-                  Upload files from Upload page, track final accepted files in All Files, and pending items in Pending
-                  Files Checklist.
+                <div className="topbar-dropdown-content">
+                  Upload files from the Upload page, review approved and system-rejected documents,
+                  and track department progress in Pending Checklist.
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
 
           <div className="relative" ref={notifRef}>
             <button
               type="button"
-              onClick={() => closeOtherMenus('notif')}
-              className="p-2 rounded-full hover:bg-gray-100 text-gray-600 relative"
+              onClick={() => {
+                closeOtherMenus('notif');
+                const nextSeen: Record<string, true> = {};
+                for (const notification of notifications) {
+                  nextSeen[notification.id] = true;
+                }
+                setSeenNotificationIds((prev) => ({ ...prev, ...nextSeen }));
+              }}
+              className="topbar-icon-btn"
               aria-label="Notifications"
             >
               <Bell className="w-5 h-5" />
-              {notifications.some((n) => !n.read) && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500" />
-              )}
+              {unreadCount > 0 ? <span className="topbar-badge">{unreadCount > 9 ? '9+' : unreadCount}</span> : null}
             </button>
-            {showNotifMenu && (
+            {showNotifMenu ? (
               <div
-                className="absolute right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden"
-                style={{ width: '500px', maxWidth: '95vw' }}
+                className="topbar-dropdown topbar-dropdown-notifications"
+                style={{ width: 'min(560px, calc(100vw - 24px))' }}
               >
-                <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200">
-                  <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
-                  <button
-                    type="button"
-                    onClick={() => setShowNotifMenu(false)}
-                    className="p-1 rounded hover:bg-gray-100"
-                  >
-                    <X className="w-4 h-4 text-gray-600" />
+                <div className="topbar-dropdown-header">
+                  <h3>Notifications</h3>
+                  <button type="button" onClick={() => setShowNotifMenu(false)} className="topbar-close">
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
-                <div className="overflow-y-auto" style={{ maxHeight: '65vh' }}>
+
+                <div className="topbar-notifications-scroll">
                   {notifications.length === 0 ? (
-                    <p className="text-sm text-gray-500 px-4 py-4">No notifications</p>
+                    <p className="topbar-empty">No notifications</p>
                   ) : (
                     notifications.map((notif) => (
-                      <div key={notif.id} className="px-4 py-3 border-b border-gray-100">
-                        <div className="flex items-start gap-2">
-                          {notif.type === 'rejection' && <XCircle className="w-4 h-4 text-red-500 mt-0.5" />}
-                          {notif.type === 'approval' && <CheckCircle className="w-4 h-4 text-green-500 mt-0.5" />}
-                          {(notif.type === 'remark' || notif.type === 'timeline') && (
-                            <Clock className="w-4 h-4 text-blue-500 mt-0.5" />
-                          )}
-                          <div className="min-w-0">
-                            <p className="text-sm text-gray-800 break-words">{notif.message}</p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              {new Date(notif.timestamp).toLocaleString('en-IN')}
-                            </p>
-                          </div>
+                      <div key={notif.id} className="topbar-notification-item">
+                        {getNotificationIcon(notif.type)}
+                        <div className="min-w-0">
+                          <p className="topbar-notification-msg">{notif.message}</p>
+                          <p className="topbar-notification-time">
+                            {new Date(notif.timestamp).toLocaleString('en-IN')}
+                          </p>
                         </div>
                       </div>
                     ))
                   )}
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
 
           <div className="relative" ref={toolsRef}>
             <button
               type="button"
               onClick={() => closeOtherMenus('tools')}
-              className="p-2 rounded-full hover:bg-gray-100 text-gray-600"
+              className="topbar-icon-btn"
               aria-label="Tools"
             >
               <Grid3x3 className="w-5 h-5" />
             </button>
-            {showToolsMenu && (
-              <div
-                className="absolute right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50"
-                style={{ width: '420px', maxWidth: '95vw' }}
-              >
-                <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200">
-                  <h3 className="text-sm font-semibold text-gray-900">Tools</h3>
-                  <button
-                    type="button"
-                    onClick={() => setShowToolsMenu(false)}
-                    className="p-1 rounded hover:bg-gray-100"
-                  >
-                    <X className="w-4 h-4 text-gray-600" />
+            {showToolsMenu ? (
+              <div className="topbar-dropdown" style={{ width: 'min(460px, calc(100vw - 24px))' }}>
+                <div className="topbar-dropdown-header">
+                  <h3>Tools</h3>
+                  <button type="button" onClick={() => setShowToolsMenu(false)} className="topbar-close">
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
-                <div className="px-4 py-3 text-sm text-gray-700 min-h-24">No extra tools configured yet.</div>
+                <div className="topbar-dropdown-content">No extra tools configured yet.</div>
               </div>
-            )}
+            ) : null}
           </div>
 
           <div className="relative" ref={userRef}>
-            <button
-              type="button"
-              onClick={() => closeOtherMenus('user')}
-              className="rounded-full flex items-center justify-center text-sm font-bold text-white shadow-sm"
-              style={{ backgroundColor: '#16a34a', width: '36px', height: '36px' }}
-              aria-label="Profile"
-            >
+            <button type="button" onClick={() => closeOtherMenus('user')} className="topbar-avatar" aria-label="Profile">
               {initials || 'U'}
             </button>
-            {showUserMenu && (
-              <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-200">
-                  <p className="text-sm font-medium text-gray-900">{user?.name || 'User'}</p>
-                  <p className="text-xs text-gray-500 mt-0.5 break-all">{user?.email || ''}</p>
+            {showUserMenu ? (
+              <div className="topbar-dropdown" style={{ width: '280px' }}>
+                <div className="topbar-user-header">
+                  <p>{user?.name || 'User'}</p>
+                  <span>{user?.email || ''}</span>
                 </div>
-                <button className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                <button type="button" className="topbar-menu-btn">
                   <User className="w-4 h-4" />
                   Profile
                 </button>
                 <button
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                  type="button"
+                  className="topbar-menu-btn topbar-menu-btn-danger"
                   onClick={() => {
                     setShowUserMenu(false);
                     onLogout?.();
@@ -287,10 +279,13 @@ export function Navbar({ user, onLogout, notifications = [] }: NavbarProps) {
                   Logout
                 </button>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
-    </nav>
+    </header>
   );
 }
+
+
+

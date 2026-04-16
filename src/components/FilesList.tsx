@@ -9,7 +9,7 @@ interface User {
   name: string;
   accessToken: string;
   role: 'staff' | 'hod' | 'principal';
-  department: 'CSE' | 'IT' | 'ALL';
+  department: 'CSE' | 'IT' | 'BIO' | 'CHEM' | 'AIDS' | 'MECH' | 'ALL';
 }
 
 interface FilesListProps {
@@ -203,15 +203,15 @@ export function FilesList({ user, status, title, subtitle }: FilesListProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 files-page">
       <div>
-        <h2 className="text-2xl mb-2">{title}</h2>
-        <p className="text-gray-600">{subtitle}</p>
+        <h2 className="text-3xl font-bold tracking-tight text-slate-900 mb-1">{title}</h2>
+        <p className="text-slate-600">{subtitle}</p>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="panel-card overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-gray-600">Loading files...</div>
+          <div className="p-8 text-center text-slate-600">Loading files...</div>
         ) : files.length === 0 ? (
           <div className="p-8 text-center">
             <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -221,14 +221,14 @@ export function FilesList({ user, status, title, subtitle }: FilesListProps) {
         ) : (
           <div className="divide-y">
             {files.map((file) => (
-              <div key={file.id} className="p-4 hover:bg-gray-50 transition-colors">
+              <div key={file.id} className="p-4 transition-all hover:bg-slate-50 file-row-line">
                 <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 bg-blue-50 rounded-lg mt-1">
+                  <div className="flex items-start gap-4 min-w-0 flex-1">
+                    <div className="p-2 bg-blue-50 rounded-lg mt-1 border border-blue-100">
                       <FileText className="w-5 h-5 text-blue-600" />
                     </div>
-                    <div>
-                      <h3 className="font-medium text-gray-900">{file.fileName}</h3>
+                    <div className="min-w-0">
+                      <h3 className="font-medium text-gray-900 hud-name-with-line"><span>{file.fileName}</span></h3>
                       <p className="text-sm text-gray-600">{file.fileCategory}</p>
                       <div className="flex items-center flex-wrap gap-4 text-xs text-gray-500 mt-2">
                         <span className="flex items-center gap-1">
@@ -253,16 +253,16 @@ export function FilesList({ user, status, title, subtitle }: FilesListProps) {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 justify-end flex-wrap shrink-0 min-w-[280px]">
                     <button
-                      className="px-3 py-1.5 text-xs font-medium rounded border border-blue-200 text-blue-700 hover:bg-blue-50"
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50 transition-all hover:shadow"
                       onClick={() => handleViewFile(file)}
                     >
                       <Eye className="w-3.5 h-3.5 inline-block mr-1" />
                       View
                     </button>
                     <button
-                      className="px-3 py-1.5 text-xs font-medium rounded border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-60"
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-60 transition-all hover:shadow"
                       onClick={() => deleteFile(file)}
                       disabled={updatingId === file.id}
                     >
@@ -270,7 +270,7 @@ export function FilesList({ user, status, title, subtitle }: FilesListProps) {
                       Delete
                     </button>
                     <span
-                      className={`px-2 py-0.5 text-xs font-medium rounded border ${
+                      className={`px-2.5 py-1 text-xs font-semibold rounded-lg border ${
                         file.status === 'approved'
                           ? 'bg-green-100 text-green-700 border-green-200'
                           : file.status === 'rejected'
@@ -285,14 +285,14 @@ export function FilesList({ user, status, title, subtitle }: FilesListProps) {
                     {user.role === 'hod' && status === 'pending' && (
                       <div className="flex items-center gap-2">
                         <button
-                          className="px-3 py-1.5 text-xs font-medium rounded border border-green-200 text-green-700 hover:bg-green-50 disabled:opacity-60"
+                          className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-green-200 text-green-700 hover:bg-green-50 disabled:opacity-60 transition-all hover:shadow"
                           onClick={() => updateStatus(file.id, 'approved')}
                           disabled={updatingId === file.id}
                         >
                           Approve
                         </button>
                         <button
-                          className="px-3 py-1.5 text-xs font-medium rounded border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-60"
+                          className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-60 transition-all hover:shadow"
                           onClick={() => updateStatus(file.id, 'rejected')}
                           disabled={updatingId === file.id}
                         >
@@ -310,3 +310,6 @@ export function FilesList({ user, status, title, subtitle }: FilesListProps) {
     </div>
   );
 }
+
+
+

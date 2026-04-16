@@ -9,7 +9,7 @@ interface User {
   name: string;
   accessToken: string;
   role: 'staff' | 'hod' | 'principal';
-  department: 'CSE' | 'IT' | 'ALL';
+  department: 'CSE' | 'IT' | 'BIO' | 'CHEM' | 'AIDS' | 'MECH' | 'ALL';
 }
 
 interface TemplatesPageProps {
@@ -121,15 +121,15 @@ export function TemplatesPage({ user }: TemplatesPageProps) {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+    <div className="space-y-6 templates-page">
+      <div className="panel-card rounded-2xl p-6">
         <h2 className="text-3xl font-semibold tracking-tight text-slate-900">Templates</h2>
         <p className="text-sm text-slate-600 mt-1">
           Download official templates and upload updated versions for each quality record file number.
         </p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+      <div className="panel-card rounded-2xl p-4">
         <input
           type="text"
           placeholder="Search by file number or file name"
@@ -139,7 +139,7 @@ export function TemplatesPage({ user }: TemplatesPageProps) {
         />
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="panel-card rounded-2xl overflow-hidden">
         <div className="max-h-[68vh] overflow-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
@@ -151,9 +151,9 @@ export function TemplatesPage({ user }: TemplatesPageProps) {
             </thead>
             <tbody>
               {filteredRecords.map((record) => (
-                <tr key={record.fileNumber} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/60 transition-colors">
+                <tr key={record.fileNumber} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/60 transition-colors file-row-line">
                   <td className="px-4 py-3 font-semibold text-slate-900">{record.fileNumber}</td>
-                  <td className="px-4 py-3 font-medium text-slate-900">{record.fileName}</td>
+                  <td className="px-4 py-3 font-medium text-slate-900"><div className="hud-name-with-line"><span>{record.fileName}</span></div></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <button
@@ -191,3 +191,7 @@ export function TemplatesPage({ user }: TemplatesPageProps) {
     </div>
   );
 }
+
+
+
+

@@ -12,12 +12,12 @@ import { getAllowedUser, UserRole } from './utils/access';
 import { FilesList } from './components/FilesList';
 import { DepartmentsSummary } from './components/DepartmentsSummary';
 import { TemplatesPage } from './components/TemplatesPage';
+import { DocumentViewer } from './components/DocumentViewer';
 
 type Page =
   | 'overview'
   | 'upload'
   | 'audit'
-  | 'all-files'
   | 'pending'
   | 'document-viewer'
   | 'verify'
@@ -32,7 +32,7 @@ interface User {
   name: string;
   accessToken: string;
   role: UserRole;
-  department: 'CSE' | 'IT' | 'ALL';
+  department: 'CSE' | 'IT' | 'BIO' | 'CHEM' | 'AIDS' | 'MECH' | 'ALL';
 }
 
 export default function App() {
@@ -40,6 +40,13 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [isEntered, setIsEntered] = useState(false);
+
+  useEffect(() => {
+    const raf = window.requestAnimationFrame(() => setIsEntered(true));
+    return () => window.cancelAnimationFrame(raf);
+  }, []);
 
   // Check for existing session on mount
   useEffect(() => {
@@ -60,8 +67,17 @@ export default function App() {
 
           if (response.ok) {
             const userData = await response.json();
+            const allowed = getAllowedUser(session.user.email);
             setUser({
               ...userData,
+              name:
+                allowed?.name ||
+                userData.name ||
+                session.user.user_metadata?.name ||
+                session.user.email?.split('@')[0] ||
+                'User',
+              role: allowed?.role || userData.role || 'staff',
+              department: allowed?.department || userData.department || 'CSE',
               accessToken: session.access_token,
             });
           } else {
@@ -138,8 +154,15 @@ export default function App() {
     setCurrentPage('overview');
   };
 
-  const handleViewAllFiles = () => {
-    setCurrentPage('all-files');
+
+  const handleOpenCategory = (category: string) => {
+    setSelectedCategory(category);
+    setCurrentPage('document-viewer');
+  };
+
+  const handleAddMissingNow = (fileNumber: string, fileName: string) => {
+    sessionStorage.setItem('auditx_upload_prefill', JSON.stringify({ fileNumber, fileName }));
+    setCurrentPage('upload');
   };
 
   const handleNavigate = (page: string) => {
@@ -154,12 +177,12 @@ export default function App() {
 
   const getAllowedPages = (role: UserRole) => {
     if (role === 'principal') {
-      return ['overview', 'templates', 'all-files', 'departments', 'approved', 'system-rejected', 'pending'] as Page[];
+      return ['overview', 'templates', 'upload', 'departments', 'approved', 'system-rejected', 'pending'] as Page[];
     }
     if (role === 'hod') {
-      return ['overview', 'templates', 'all-files', 'verify', 'system-rejected', 'pending'] as Page[];
+      return ['overview', 'templates', 'upload', 'verify', 'system-rejected', 'pending'] as Page[];
     }
-    return ['overview', 'templates', 'upload', 'audit', 'all-files', 'system-rejected', 'pending'] as Page[];
+    return ['overview', 'templates', 'upload', 'audit', 'system-rejected', 'pending'] as Page[];
   };
 
   useEffect(() => {
@@ -188,13 +211,14 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`app-shell min-h-screen hud-theme ${isEntered ? 'is-entered' : 'is-entering'}`}>
+      <div className="app-intro-vignette" aria-hidden />
       <Navbar user={user} onLogout={handleLogout} notifications={notifications} />
       
-      <div className="flex">
+      <div className="app-body flex">
         <Sidebar currentPage={currentPage} onNavigate={handleNavigate} role={user.role} />
         
-        <main className="flex-1 p-8">
+        <main className="app-main flex-1">
           {currentPage === 'overview' && <Overview user={user} />}
           
           {currentPage === 'upload' && (
@@ -203,13 +227,18 @@ export default function App() {
             </div>
           )}
           
-          {currentPage === 'audit' && <AuditFilesDetails onViewAllFiles={handleViewAllFiles} user={user} />}
-
-          {currentPage === 'all-files' && (
-            <FilesList
+          {currentPage === 'audit' && (
+            <AuditFilesDetails
+              onOpenCategory={handleOpenCategory}
               user={user}
-              title="All Verified Files"
-              subtitle="All files currently stored in the system (excluding auto-rejected)"
+            />
+          )}
+
+          {currentPage === 'document-viewer' && (
+            <DocumentViewer
+              user={user}
+              documentName={selectedCategory || 'Selected Category'}
+              onBack={() => setCurrentPage('audit')}
             />
           )}
 
@@ -246,9 +275,14 @@ export default function App() {
             />
           )}
           
-          {currentPage === 'pending' && <AuditPendingList user={user} />}
+          {currentPage === 'pending' && (
+            <AuditPendingList user={user} onAddNow={handleAddMissingNow} />
+          )}
         </main>
       </div>
     </div>
   );
 }
+
+
+
