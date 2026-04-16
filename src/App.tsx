@@ -1,18 +1,30 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
 import { supabase } from './utils/supabase/client';
 import { projectId } from './utils/supabase/info';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
-import { FormBasedUpload } from './components/FormBasedUpload';
-import { AuditFilesDetails } from './components/AuditFilesDetails';
 import { Overview } from './components/Overview';
-import { AuditPendingList } from './components/AuditPendingList';
 import { LoginPage } from './components/LoginPage';
 import { getAllowedUser, UserRole } from './utils/access';
-import { FilesList } from './components/FilesList';
-import { DepartmentsSummary } from './components/DepartmentsSummary';
-import { TemplatesPage } from './components/TemplatesPage';
-import { DocumentViewer } from './components/DocumentViewer';
+
+// Lazy load heavy components
+const FormBasedUpload = lazy(() => import('./components/FormBasedUpload').then(m => ({ default: m.FormBasedUpload })));
+const AuditFilesDetails = lazy(() => import('./components/AuditFilesDetails').then(m => ({ default: m.AuditFilesDetails })));
+const AuditPendingList = lazy(() => import('./components/AuditPendingList').then(m => ({ default: m.AuditPendingList })));
+const FilesList = lazy(() => import('./components/FilesList').then(m => ({ default: m.FilesList })));
+const DepartmentsSummary = lazy(() => import('./components/DepartmentsSummary').then(m => ({ default: m.DepartmentsSummary })));
+const TemplatesPage = lazy(() => import('./components/TemplatesPage').then(m => ({ default: m.TemplatesPage })));
+const DocumentViewer = lazy(() => import('./components/DocumentViewer').then(m => ({ default: m.DocumentViewer })));
+
+// Loading fallback component
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-96">
+    <div className="text-center">
+      <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <p className="mt-4 text-gray-600">Loading page...</p>
+    </div>
+  </div>
+);
 
 type Page =
   | 'overview'
@@ -222,61 +234,81 @@ export default function App() {
           {currentPage === 'overview' && <Overview user={user} />}
           
           {currentPage === 'upload' && (
-            <div className="space-y-6">
-              <FormBasedUpload user={user} />
-            </div>
+            <Suspense fallback={<PageLoader />}>
+              <div className="space-y-6">
+                <FormBasedUpload user={user} />
+              </div>
+            </Suspense>
           )}
           
           {currentPage === 'audit' && (
-            <AuditFilesDetails
-              onOpenCategory={handleOpenCategory}
-              user={user}
-            />
+            <Suspense fallback={<PageLoader />}>
+              <AuditFilesDetails
+                onOpenCategory={handleOpenCategory}
+                user={user}
+              />
+            </Suspense>
           )}
 
           {currentPage === 'document-viewer' && (
-            <DocumentViewer
-              user={user}
-              documentName={selectedCategory || 'Selected Category'}
-              onBack={() => setCurrentPage('audit')}
-            />
+            <Suspense fallback={<PageLoader />}>
+              <DocumentViewer
+                user={user}
+                documentName={selectedCategory || 'Selected Category'}
+                onBack={() => setCurrentPage('audit')}
+              />
+            </Suspense>
           )}
 
           {currentPage === 'departments' && user.role === 'principal' && (
-            <DepartmentsSummary user={user} />
+            <Suspense fallback={<PageLoader />}>
+              <DepartmentsSummary user={user} />
+            </Suspense>
           )}
 
-          {currentPage === 'templates' && <TemplatesPage user={user} />}
+          {currentPage === 'templates' && (
+            <Suspense fallback={<PageLoader />}>
+              <TemplatesPage user={user} />
+            </Suspense>
+          )}
 
           {currentPage === 'verify' && (
-            <FilesList
-              user={user}
-              status="pending"
-              title="Verify Files"
-              subtitle="Files awaiting HOD verification for your department"
-            />
+            <Suspense fallback={<PageLoader />}>
+              <FilesList
+                user={user}
+                status="pending"
+                title="Verify Files"
+                subtitle="Files awaiting HOD verification for your department"
+              />
+            </Suspense>
           )}
 
           {currentPage === 'approved' && (
-            <FilesList
-              user={user}
-              status="approved"
-              title="Approved Files"
-              subtitle="All approved files across departments"
-            />
+            <Suspense fallback={<PageLoader />}>
+              <FilesList
+                user={user}
+                status="approved"
+                title="Approved Files"
+                subtitle="All approved files across departments"
+              />
+            </Suspense>
           )}
 
           {currentPage === 'system-rejected' && (
-            <FilesList
-              user={user}
-              status="system_rejected"
-              title="System Rejected Files"
-              subtitle="Files auto-rejected by similarity or template checks"
-            />
+            <Suspense fallback={<PageLoader />}>
+              <FilesList
+                user={user}
+                status="system_rejected"
+                title="System Rejected Files"
+                subtitle="Files auto-rejected by similarity or template checks"
+              />
+            </Suspense>
           )}
           
           {currentPage === 'pending' && (
-            <AuditPendingList user={user} onAddNow={handleAddMissingNow} />
+            <Suspense fallback={<PageLoader />}>
+              <AuditPendingList user={user} onAddNow={handleAddMissingNow} />
+            </Suspense>
           )}
         </main>
       </div>
