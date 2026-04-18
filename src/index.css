@@ -2362,6 +2362,197 @@ html {
   border-color: rgba(34, 211, 238, 0.4);
 }
 
+.scene-theme {
+  color: var(--hud-text);
+}
+
+.hud-theme.scene-theme .app-shell {
+  background:
+    radial-gradient(circle at 16% 8%, rgba(255, 255, 255, 0.24), transparent 22%),
+    radial-gradient(circle at 86% 90%, rgba(255, 255, 255, 0.12), transparent 24%),
+    var(--hud-bg);
+  background-size: auto, auto, auto;
+}
+
+.hud-theme.scene-theme .app-intro-vignette {
+  background: radial-gradient(circle at center, transparent 28%, rgba(0, 0, 0, 0.46) 92%);
+}
+
+.hud-theme.scene-theme .topbar {
+  background: var(--hud-topbar);
+  border-bottom: 1px solid var(--hud-line);
+  backdrop-filter: blur(16px);
+}
+
+.hud-theme.scene-theme .topbar-chip,
+.hud-theme.scene-theme .topbar-icon-btn {
+  background: var(--hud-surface);
+  border-color: var(--hud-line);
+  color: var(--hud-muted);
+}
+
+.hud-theme.scene-theme .topbar-chip:hover,
+.hud-theme.scene-theme .topbar-icon-btn:hover {
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 0 24px -12px var(--hud-glow);
+}
+
+.hud-theme.scene-theme .topbar-dropdown {
+  background: var(--hud-surface);
+  border: 1px solid var(--hud-line);
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.18);
+}
+
+.hud-theme.scene-theme .topbar-dropdown-header,
+.hud-theme.scene-theme .topbar-user-header,
+.hud-theme.scene-theme .topbar-notification-item {
+  border-color: var(--hud-line);
+}
+
+.hud-theme.scene-theme .audit-sidebar {
+  background: var(--hud-sidebar);
+  border-right: 1px solid var(--hud-line);
+}
+
+.hud-theme.scene-theme .audit-sidebar-toggle-btn {
+  background: var(--hud-surface);
+  border: 1px solid var(--hud-line);
+  color: var(--hud-muted);
+}
+
+.hud-theme.scene-theme .audit-sidebar-link {
+  color: var(--hud-text);
+}
+
+.hud-theme.scene-theme .audit-sidebar-link:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--hud-line);
+}
+
+.hud-theme.scene-theme .audit-sidebar-link.is-active {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.08));
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 0 26px -14px var(--hud-glow);
+}
+
+.hud-theme.scene-theme .panel-card {
+  border-color: var(--hud-line);
+  background: var(--hud-card);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 14px 32px rgba(0, 0, 0, 0.16);
+}
+
+.hud-theme.scene-theme .panel-card:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.hud-theme.scene-theme .hud-overview .hud-kicker {
+  color: var(--hud-text);
+}
+
+.hud-theme.scene-theme .hud-overview .hud-count-box {
+  border-color: var(--hud-line);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.hud-theme.scene-theme .hud-overview .hud-panel-head {
+  border-bottom-color: var(--hud-line);
+}
+
+.hud-theme.scene-theme .hud-overview .hud-chart-shell,
+.hud-theme.scene-theme .hud-overview .hud-status-panel,
+.hud-theme.scene-theme .hud-overview .hud-recent-panel {
+  color: var(--hud-text);
+}
+
+.hud-theme.scene-theme .hud-overview .hud-view-btn,
+.hud-theme.scene-theme .hud-overview .hud-tag {
+  border-color: var(--hud-line);
+}
+
+.hud-theme.scene-theme .app-main {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04));
+}
+
+.hud-theme.scene-theme .app-main .bg-white,
+.hud-theme.scene-theme .app-main .from-rose-50,
+.hud-theme.scene-theme .app-main .via-orange-50,
+.hud-theme.scene-theme .app-main .to-rose-50,
+.hud-theme.scene-theme .app-main .bg-slate-50,
+.hud-theme.scene-theme .app-main .bg-slate-100,
+.hud-theme.scene-theme .app-main .bg-gray-50 {
+  background: var(--hud-card) !important;
+}
+
+.hud-theme.scene-theme .app-main .border-slate-100,
+.hud-theme.scene-theme .app-main .border-slate-200,
+.hud-theme.scene-theme .app-main .border-slate-300,
+.hud-theme.scene-theme .app-main .border-gray-100,
+.hud-theme.scene-theme .app-main .border-gray-200,
+.hud-theme.scene-theme .app-main .border-gray-300 {
+  border-color: var(--hud-line) !important;
+}
+
+.hud-theme.scene-theme .app-main .text-slate-900,
+.hud-theme.scene-theme .app-main .text-gray-900,
+.hud-theme.scene-theme .app-main .text-slate-800,
+.hud-theme.scene-theme .app-main .text-gray-800,
+.hud-theme.scene-theme .app-main h1,
+.hud-theme.scene-theme .app-main h2,
+.hud-theme.scene-theme .app-main h3,
+.hud-theme.scene-theme .app-main h4,
+.hud-theme.scene-theme .app-main th,
+.hud-theme.scene-theme .app-main td {
+  color: var(--hud-text) !important;
+}
+
+.hud-theme.scene-theme .app-main .text-slate-700,
+.hud-theme.scene-theme .app-main .text-gray-700,
+.hud-theme.scene-theme .app-main .text-slate-600,
+.hud-theme.scene-theme .app-main .text-gray-600,
+.hud-theme.scene-theme .app-main .text-slate-500,
+.hud-theme.scene-theme .app-main .text-gray-500 {
+  color: var(--hud-muted) !important;
+}
+
+.hud-theme.scene-theme .app-main input,
+.hud-theme.scene-theme .app-main select,
+.hud-theme.scene-theme .app-main textarea {
+  background: rgba(255, 255, 255, 0.64) !important;
+  color: var(--hud-text) !important;
+  border-color: var(--hud-line) !important;
+}
+
+.hud-theme.scene-theme .app-main input::placeholder,
+.hud-theme.scene-theme .app-main textarea::placeholder {
+  color: var(--hud-muted) !important;
+}
+
+.hud-theme.scene-theme .app-main table thead {
+  background: rgba(255, 255, 255, 0.42) !important;
+}
+
+.hud-theme.scene-theme .app-main .hover\:bg-slate-50\/60:hover,
+.hud-theme.scene-theme .app-main .hover\:bg-slate-50:hover,
+.hud-theme.scene-theme .app-main .hover\:bg-gray-50:hover {
+  background: rgba(255, 255, 255, 0.26) !important;
+}
+
+.hud-theme.scene-theme .app-main .text-blue-700,
+.hud-theme.scene-theme .app-main .text-blue-600 {
+  color: #2d6cdf !important;
+}
+
+.hud-theme.scene-theme .app-main .border-blue-200,
+.hud-theme.scene-theme .app-main .border-blue-300,
+.hud-theme.scene-theme .app-main .border-blue-100 {
+  border-color: var(--hud-line) !important;
+}
+
+.hud-theme.scene-theme .app-main .bg-blue-50,
+.hud-theme.scene-theme .app-main .hover\:bg-blue-50:hover {
+  background: rgba(255, 255, 255, 0.24) !important;
+}
+
 .hud-overview .hud-title {
   color: var(--hud-text);
   font-size: 30px;
@@ -2742,12 +2933,18 @@ html {
 
 .hud-overview .hud-hero-settings-inline button {
   height: 30px;
-  border: 1px solid rgba(34, 211, 238, 0.45);
-  background: rgba(34, 211, 238, 0.14);
-  color: #dff5ff;
+  border: 1px solid rgba(142, 104, 63, 0.38);
+  background: rgba(252, 242, 224, 0.92);
+  color: #5b3d1f;
   padding: 0 10px;
   font-size: 12px;
   font-weight: 600;
+}
+
+.hud-overview .hud-hero-settings-inline button:hover {
+  background: rgba(248, 231, 200, 0.98);
+  border-color: rgba(142, 104, 63, 0.55);
+  color: #442b14;
 }
 
 .hud-overview .hud-countdown-grid {

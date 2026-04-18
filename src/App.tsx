@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense, lazy } from 'react';
+import { useState, useEffect, Suspense, lazy, type CSSProperties } from 'react';
 import { supabase } from './utils/supabase/client';
 import { projectId } from './utils/supabase/info';
 import { Navbar } from './components/Navbar';
@@ -6,6 +6,7 @@ import { Sidebar } from './components/Sidebar';
 import { Overview } from './components/Overview';
 import { LoginPage } from './components/LoginPage';
 import { getAllowedUser, UserRole } from './utils/access';
+import { getActiveScene, getScenePalette, type SceneMode } from './utils/sceneTheme';
 
 // Lazy load heavy components
 const FormBasedUpload = lazy(() => import('./components/FormBasedUpload').then(m => ({ default: m.FormBasedUpload })));
@@ -54,10 +55,19 @@ export default function App() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [isEntered, setIsEntered] = useState(false);
+  const [sceneMode, setSceneMode] = useState<SceneMode>('auto');
+  const [sceneNow, setSceneNow] = useState(() => new Date());
 
   useEffect(() => {
     const raf = window.requestAnimationFrame(() => setIsEntered(true));
     return () => window.cancelAnimationFrame(raf);
+  }, []);
+
+  useEffect(() => {
+    const tick = () => setSceneNow(new Date());
+    tick();
+    const interval = window.setInterval(tick, 60_000);
+    return () => window.clearInterval(interval);
   }, []);
 
   // Check for existing session on mount
@@ -219,11 +229,38 @@ export default function App() {
 
   // Show login page if not authenticated
   if (!user) {
-    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+    return (
+      <LoginPage
+        onLoginSuccess={handleLoginSuccess}
+        sceneMode={sceneMode}
+        onSceneModeChange={setSceneMode}
+      />
+    );
   }
 
+  const activeScene = getActiveScene(sceneMode, sceneNow);
+  const scenePalette = getScenePalette(activeScene);
+  const sceneThemeVars = {
+    '--hud-bg': scenePalette.background,
+    '--hud-surface': scenePalette.surface,
+    '--hud-surface-2': scenePalette.surface2,
+    '--hud-card': scenePalette.card,
+    '--hud-topbar': scenePalette.topbar,
+    '--hud-sidebar': scenePalette.sidebar,
+    '--hud-line': scenePalette.line,
+    '--hud-glow': scenePalette.glow,
+    '--hud-text': scenePalette.text,
+    '--hud-muted': scenePalette.muted,
+    '--hud-ok': scenePalette.ok,
+    '--hud-warn': scenePalette.warn,
+    '--hud-danger': scenePalette.danger,
+  } as CSSProperties;
+
   return (
-    <div className={`app-shell min-h-screen hud-theme ${isEntered ? 'is-entered' : 'is-entering'}`}>
+    <div
+      className={`app-shell min-h-screen hud-theme scene-theme scene-${activeScene} ${isEntered ? 'is-entered' : 'is-entering'}`}
+      style={sceneThemeVars}
+    >
       <div className="app-intro-vignette" aria-hidden />
       <Navbar user={user} onLogout={handleLogout} notifications={notifications} />
       
