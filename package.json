@@ -66,7 +66,8 @@
         "dev": "vite",
         "build": "vite build",
         "predev": "node scripts/ensure-env.cjs",
-        "prebuild": "node scripts/ensure-env.cjs"
+        "prebuild": "node scripts/ensure-env.cjs",
+        "ship": "node scripts/ship.cjs"
     },
     "engines": {
         "node": ">=20.0.0",

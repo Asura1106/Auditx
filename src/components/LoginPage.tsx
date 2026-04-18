@@ -189,9 +189,27 @@ export function LoginPage({ onLoginSuccess, forcedError }: LoginPageProps) {
           display: flex;
           flex-direction: column;
           align-items: center;
-          justify-content: center;
-          padding: 40px;
+          justify-content: flex-start;
+          padding: 28px 40px 40px;
           background: #f8f9ff;
+        }
+
+        .login-brand {
+          width: 240px;
+          max-width: calc(100% - 80px);
+          height: auto;
+          object-fit: contain;
+          display: block;
+          align-self: flex-start;
+          margin: 6px 0 0 4px;
+        }
+
+        .form-wrap {
+          flex: 1;
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .form-container {
@@ -266,6 +284,32 @@ export function LoginPage({ onLoginSuccess, forcedError }: LoginPageProps) {
           cursor: not-allowed;
         }
 
+        .password-field {
+          position: relative;
+          width: 100%;
+        }
+
+        .password-toggle {
+          position: absolute;
+          right: 12px;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 28px;
+          height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0;
+          border: 0;
+          background: transparent;
+          color: #6b7280;
+          transition: color 0.2s ease;
+        }
+
+        .password-toggle:hover {
+          color: #374151;
+        }
+
         @media (max-width: 768px) {
           .left-section {
             display: none;
@@ -294,82 +338,86 @@ export function LoginPage({ onLoginSuccess, forcedError }: LoginPageProps) {
 
       {/* Right Section - Login Form */}
       <div className="right-section">
-        <div className="form-container" style={{ animation: 'slideInUp 600ms ease-out' }}>
-          <h2 className="greeting">Hello!</h2>
-          <p className="greeting-desc">Login your account</p>
+        <img src={collegeLogo} alt="College logo" className="login-brand" />
 
-          {/* Error Message */}
-          {error && (
-            <div 
-              className="mb-4 p-3 rounded-lg bg-red-50 border-l-4 border-red-500 text-red-700 text-sm"
-              style={{ animation: 'slideInUp 300ms ease-out' }}
-            >
-              {error}
-            </div>
-          )}
+        <div className="form-wrap">
+          <div className="form-container" style={{ animation: 'slideInUp 600ms ease-out' }}>
+            <h2 className="greeting">Hello!</h2>
+            <p className="greeting-desc">Login your account</p>
 
-          {/* Login Form */}
-          <form onSubmit={handleEmailLogin} autoComplete="on">
-            {/* Email/Username Field */}
-            <div className="form-group" style={{ animation: 'slideInUp 500ms ease-out 100ms both' }}>
-              <label className="form-label">Email Address</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="form-input"
-                placeholder="Enter your email"
-                required
-              />
-            </div>
-
-            {/* Password Field */}
-            {email.trim().length > 0 && (
-              <div className="form-group" style={{ animation: 'revealField 240ms ease-out both' }}>
-                <label className="form-label">Password</label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="form-input"
-                    placeholder="Enter your password"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                  </button>
-                </div>
+            {/* Error Message */}
+            {error && (
+              <div 
+                className="mb-4 p-3 rounded-lg bg-red-50 border-l-4 border-red-500 text-red-700 text-sm"
+                style={{ animation: 'slideInUp 300ms ease-out' }}
+              >
+                {error}
               </div>
             )}
 
-            {/* Submit Button */}
-            {email.trim().length > 0 && password.trim().length > 0 && (
-              <button
-                type="submit"
-                disabled={loading}
-                className="login-btn"
-                style={{ animation: 'revealField 240ms ease-out both' }}
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center">
-                    <svg className="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Signing in...
-                  </span>
-                ) : (
-                  'Login'
-                )}
-              </button>
-            )}
-          </form>
+            {/* Login Form */}
+            <form onSubmit={handleEmailLogin} autoComplete="on">
+              {/* Email/Username Field */}
+              <div className="form-group" style={{ animation: 'slideInUp 500ms ease-out 100ms both' }}>
+                <label className="form-label">Email Address</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="form-input"
+                  placeholder="Enter your email"
+                  required
+                />
+              </div>
+
+              {/* Password Field */}
+              {email.trim().length > 0 && (
+                <div className="form-group" style={{ animation: 'revealField 240ms ease-out both' }}>
+                  <label className="form-label">Password</label>
+                  <div className="password-field">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="form-input pr-12"
+                      placeholder="Enter your password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="password-toggle"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Submit Button */}
+              {email.trim().length > 0 && password.trim().length > 0 && (
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="login-btn"
+                  style={{ animation: 'revealField 240ms ease-out both' }}
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Signing in...
+                    </span>
+                  ) : (
+                    'Login'
+                  )}
+                </button>
+              )}
+            </form>
+          </div>
         </div>
       </div>
     </div>
