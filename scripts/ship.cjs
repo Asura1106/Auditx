@@ -32,13 +32,12 @@ function main() {
   runGit(['add', '-A']);
 
   const status = getOutput(['status', '--porcelain']);
-  if (!status) {
-    console.log('[ship] Nothing to ship.');
-    return;
+  if (status) {
+    console.log(`[ship] Committing with message: ${message}`);
+    runGit(['commit', '-m', message]);
+  } else {
+    console.log('[ship] Working tree is clean. Pushing current branch tip...');
   }
-
-  console.log(`[ship] Committing with message: ${message}`);
-  runGit(['commit', '-m', message]);
 
   console.log(`[ship] Pushing ${branch} to origin...`);
   runGit(['push', 'origin', branch]);
