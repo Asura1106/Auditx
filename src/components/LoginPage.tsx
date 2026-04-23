@@ -282,7 +282,7 @@ export function LoginPage({
   };
 
   return (
-    <div className="relative min-h-screen flex overflow-hidden" style={{ background: rightTone }}>
+    <div className="relative min-h-screen overflow-hidden" style={{ background: skyTone }}>
       <style>{`
         @keyframes slideInUp {
           0% { opacity: 0; transform: translateY(20px); }
@@ -319,26 +319,12 @@ export function LoginPage({
           50% { transform: translateX(8px); }
         }
 
-        .left-section {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          position: relative;
+        .scene-layer {
+          position: absolute;
+          inset: 0;
+          z-index: 0;
           overflow: hidden;
           transition: background 500ms ease, filter 500ms ease;
-        }
-
-        .right-section {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: flex-start;
-          padding: 28px 40px 40px;
-          transition: background 500ms ease;
-          border-left: 1px solid ${panelBorder};
         }
 
         .sky-body {
@@ -408,28 +394,6 @@ export function LoginPage({
           border-radius: 50% 50% 0 0;
         }
 
-        .left-text {
-          position: relative;
-          z-index: 10;
-          text-align: center;
-          color: white;
-          max-width: 360px;
-        }
-
-        .left-text h3 {
-          font-size: 26px;
-          font-weight: 700;
-          letter-spacing: -0.02em;
-          margin-bottom: 10px;
-          text-shadow: 0 2px 16px rgba(0, 0, 0, 0.18);
-        }
-
-        .left-text p {
-          font-size: 14px;
-          opacity: 0.95;
-          line-height: 1.6;
-        }
-
         .night-stars {
           position: absolute;
           inset: 0;
@@ -484,34 +448,25 @@ export function LoginPage({
           left: 20px;
         }
 
-        .form-wrap {
-          flex: 1;
-          width: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
         .form-container {
           width: 100%;
-          max-width: 420px;
+          max-width: 440px;
           color: ${textTone};
-          background: ${cardTone};
+          background: ${isNight ? 'rgba(9, 15, 28, 0.42)' : 'rgba(255, 255, 255, 0.22)'};
           border: 1px solid ${panelBorder};
-          border-radius: 28px;
+          border-radius: 30px;
           padding: 28px 30px 30px;
-          box-shadow: 0 24px 50px rgba(15, 23, 42, 0.08);
-          backdrop-filter: blur(10px);
+          box-shadow: 0 24px 50px rgba(15, 23, 42, 0.12);
+          backdrop-filter: blur(18px);
         }
 
         .login-brand {
-          width: 280px;
+          width: 180px;
           max-width: 100%;
           height: auto;
           object-fit: contain;
           display: block;
-          align-self: flex-start;
-          margin: 6px 0 18px 4px;
+          margin: 0 auto 18px;
         }
 
         .greeting {
@@ -525,12 +480,13 @@ export function LoginPage({
         .greeting-desc {
           font-size: 14px;
           color: ${mutedTone};
-          margin-bottom: 30px;
+          margin-bottom: 24px;
           animation: slideInRight 500ms ease-out 100ms both;
+          text-align: center;
         }
 
         .form-group {
-          margin-bottom: 20px;
+          margin-bottom: 18px;
         }
 
         .form-label {
@@ -638,31 +594,93 @@ export function LoginPage({
         }
 
         @media (max-width: 960px) {
-          .left-section {
-            display: none;
-          }
-
-          .right-section {
-            flex: 1;
-            border-left: none;
-            padding: 24px 16px 32px;
-          }
-
           .form-container {
             padding: 24px 20px 24px;
           }
 
           .login-brand {
-            width: 220px;
-            margin-left: 0;
+            width: 160px;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .form-container {
+            max-width: min(100%, 360px);
+            padding: 20px 16px 18px;
+            border-radius: 24px;
+            backdrop-filter: blur(14px);
+          }
+
+          .login-brand {
+            width: 124px;
+            margin-bottom: 14px;
+          }
+
+          .greeting {
+            font-size: 20px;
+          }
+
+          .greeting-desc {
+            font-size: 13px;
+            margin-bottom: 18px;
+          }
+
+          .form-group {
+            margin-bottom: 14px;
+          }
+
+          .form-label {
+            font-size: 12px;
+            margin-bottom: 6px;
+          }
+
+          .form-input {
+            padding: 11px 12px;
+            font-size: 13px;
+          }
+
+          .login-btn {
+            padding: 11px;
+            font-size: 14px;
+            margin-top: 14px;
+          }
+
+          .sky-body {
+            width: 88px;
+            height: 88px;
+          }
+
+          .cloud-1,
+          .cloud-2,
+          .cloud-3,
+          .hill-1,
+          .hill-2 {
+            opacity: 0.38;
+          }
+
+          .night-star {
+            font-size: 10px !important;
+          }
+
+          .dialogue-bubble {
+            min-width: 140px;
+            max-width: 170px;
+            font-size: 11px;
+            padding: 8px 10px;
+          }
+
+          .scene-toggle {
+            right: 12px;
+            bottom: 12px;
+            padding: 8px 12px;
+            font-size: 11px;
           }
         }
       `}</style>
 
       <div
-        className="left-section"
+        className="scene-layer"
         style={{
-          background: skyTone,
           filter: isNight ? 'saturate(0.95) brightness(0.92)' : 'none',
         }}
       >
@@ -791,121 +809,114 @@ export function LoginPage({
         <div className="cloud cloud-3" />
         <div className="hill-1" />
         <div className="hill-2" />
-
-        <div className="left-text" style={{ animation: 'fadeInScale 600ms ease-out' }}>
-          <h3>{leftHeading}</h3>
-          <p>{leftCopy}</p>
-        </div>
       </div>
 
-      <div className="right-section" style={{ background: rightTone }}>
-        <img src={collegeLogo} alt="College logo" className="login-brand" />
+      <div className="relative z-10 min-h-screen flex items-center justify-center px-4 py-10 pointer-events-none">
+        <div className="form-container pointer-events-auto" style={{ animation: 'slideInUp 600ms ease-out' }}>
+          <img src={collegeLogo} alt="College logo" className="login-brand" />
 
-        <div className="form-wrap">
-          <div className="form-container" style={{ animation: 'slideInUp 600ms ease-out' }}>
-            <h2 className="greeting" style={{ color: textTone }}>
-              Hello!
-            </h2>
-            <p className="greeting-desc">Login your account</p>
+          <h2 className="greeting" style={{ color: textTone, textAlign: 'center' }}>
+            Hello!
+          </h2>
+          <p className="greeting-desc">Login your account</p>
 
-            {error ? (
-              <div
-                className="mb-4 p-3 rounded-lg bg-red-50 border-l-4 border-red-500 text-red-700 text-sm"
-                style={{ animation: 'slideInUp 300ms ease-out' }}
-              >
-                {error}
+          {error ? (
+            <div
+              className="mb-4 p-3 rounded-lg bg-red-50 border-l-4 border-red-500 text-red-700 text-sm"
+              style={{ animation: 'slideInUp 300ms ease-out' }}
+            >
+              {error}
+            </div>
+          ) : null}
+
+          <form onSubmit={handleEmailLogin} autoComplete="on">
+            <div
+              className="form-group"
+              style={{ animation: 'slideInUp 500ms ease-out 100ms both' }}
+            >
+              <label className="form-label">Email Address</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="form-input"
+                placeholder="Enter your email"
+                required
+              />
+            </div>
+
+            {email.trim().length > 0 ? (
+              <div className="form-group" style={{ animation: 'revealField 240ms ease-out both' }}>
+                <label className="form-label">Password</label>
+                <div className="password-field">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="form-input pr-12"
+                    placeholder="Enter your password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((value) => !value)}
+                    className="password-toggle"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
             ) : null}
 
-            <form onSubmit={handleEmailLogin} autoComplete="on">
-              <div
-                className="form-group"
-                style={{ animation: 'slideInUp 500ms ease-out 100ms both' }}
+            {email.trim().length > 0 && password.trim().length > 0 ? (
+              <button
+                type="submit"
+                disabled={loading}
+                className="login-btn"
+                style={{ animation: 'revealField 240ms ease-out both' }}
               >
-                <label className="form-label">Email Address</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="form-input"
-                  placeholder="Enter your email"
-                  required
-                />
-              </div>
-
-              {email.trim().length > 0 ? (
-                <div className="form-group" style={{ animation: 'revealField 240ms ease-out both' }}>
-                  <label className="form-label">Password</label>
-                  <div className="password-field">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="form-input pr-12"
-                      placeholder="Enter your password"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((value) => !value)}
-                      className="password-toggle"
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                {loading ? (
+                  <span className="flex items-center justify-center">
+                    <svg
+                      className="animate-spin h-5 w-5 mr-2"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-
-              {email.trim().length > 0 && password.trim().length > 0 ? (
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="login-btn"
-                  style={{ animation: 'revealField 240ms ease-out both' }}
-                >
-                  {loading ? (
-                    <span className="flex items-center justify-center">
-                      <svg
-                        className="animate-spin h-5 w-5 mr-2"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        />
-                      </svg>
-                      Signing in...
-                    </span>
-                  ) : (
-                    'Login'
-                  )}
-                </button>
-              ) : null}
-            </form>
-          </div>
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    Signing in...
+                  </span>
+                ) : (
+                  'Login'
+                )}
+              </button>
+            ) : null}
+          </form>
         </div>
       </div>
 
       <button
-      type="button"
-      className="scene-toggle"
-      onClick={() => {
-        clearDialogue();
-        onSceneModeChange(cycleScene(sceneMode));
-      }}
-    >
+        type="button"
+        className="scene-toggle"
+        onClick={() => {
+          clearDialogue();
+          onSceneModeChange(cycleScene(sceneMode));
+        }}
+      >
         {getSceneLabel(sceneMode, now)}
       </button>
     </div>

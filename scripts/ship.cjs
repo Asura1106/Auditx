@@ -1,59 +1,58 @@
-const { spawnSync } = require('child_process');
+const { execFileSync } = require('node:child_process');
+const path = require('node:path');
 
 function runGit(args, options = {}) {
-  const result = spawnSync('git', args, {
-    encoding: 'utf8',
+  return execFileSync('git', args, {
+    stdio: 'inherit',
     shell: false,
     ...options,
   });
-
-  if (result.error) {
-    throw result.error;
-  }
-
-  if (result.status !== 0) {
-    const stderr = (result.stderr || '').trim();
-    const stdout = (result.stdout || '').trim();
-    const message = stderr || stdout || `git ${args.join(' ')}`;
-    throw new Error(message);
-  }
-
-  return (result.stdout || '').trim();
 }
 
-function log(message) {
-  console.log(`[ship] ${message}`);
+function getOutput(args, options = {}) {
+  return execFileSync('git', args, {
+    encoding: 'utf8',
+    shell: false,
+    ...options,
+  }).trim();
 }
 
 function main() {
-  const branch = runGit(['branch', '--show-current']);
-  if (!branch) {
-    throw new Error('No current branch detected. Are you in a detached HEAD state?');
+  const branch = getOutput(['rev-parse', '--abbrev-ref', 'HEAD']);
+  if (!branch || branch === 'HEAD') {
+    console.error('[ship] You must be on a branch before shipping.');
+    process.exit(1);
   }
 
-  const status = runGit(['status', '--porcelain']);
+  const root = getOutput(['rev-parse', '--show-toplevel']);
+  const repoName = path.basename(root);
+  const message = process.argv.slice(2).join(' ').trim() || `chore: ship ${new Date().toISOString().slice(0, 10)}`;
+
+  console.log(`[ship] Staging changes on ${branch}...`);
+  runGit(['add', '-A']);
+
+  const status = getOutput(['status', '--porcelain']);
   if (!status) {
-    log('No changes to ship.');
+    console.log('[ship] Nothing to ship.');
     return;
   }
 
-  const message = process.argv.slice(2).join(' ').trim() || `chore: ship ${new Date().toISOString().slice(0, 10)}`;
-
-  log(`Staging changes on ${branch}...`);
-  runGit(['add', '-A']);
-
-  log(`Committing with message: ${message}`);
+  console.log(`[ship] Committing with message: ${message}`);
   runGit(['commit', '-m', message]);
 
-  log(`Pushing ${branch} to origin...`);
-  runGit(['push', '-u', 'origin', branch], { stdio: 'inherit' });
+  console.log(`[ship] Pushing ${branch} to origin...`);
+  runGit(['push', 'origin', branch]);
 
-  log('Done. Vercel should pick up the new push automatically.');
+  console.log(`[ship] Done. Vercel should pick up the new push automatically.`);
+  console.log(`[ship] Repo: ${repoName}`);
 }
 
 try {
   main();
 } catch (error) {
-  console.error(`[ship] ${error.message}`);
+  console.error('[ship] Ship failed.');
+  if (error && typeof error === 'object' && 'message' in error) {
+    console.error(String(error.message));
+  }
   process.exit(1);
 }
