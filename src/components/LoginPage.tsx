@@ -325,6 +325,7 @@ export function LoginPage({
           z-index: 0;
           overflow: hidden;
           transition: background 500ms ease, filter 500ms ease;
+          pointer-events: none;
         }
 
         .sky-body {
@@ -433,6 +434,7 @@ export function LoginPage({
           box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
           backdrop-filter: blur(8px);
           z-index: 20;
+          pointer-events: none;
         }
 
         .dialogue-bubble::after {
@@ -811,8 +813,8 @@ export function LoginPage({
         <div className="hill-2" />
       </div>
 
-      <div className="relative z-10 min-h-screen flex items-center justify-center px-4 py-10 pointer-events-none">
-        <div className="form-container pointer-events-auto" style={{ animation: 'slideInUp 600ms ease-out' }}>
+      <div className="relative z-10 min-h-screen flex items-center justify-center px-4 py-10">
+        <div className="form-container relative z-20 pointer-events-auto" style={{ animation: 'slideInUp 600ms ease-out' }}>
           <img src={collegeLogo} alt="College logo" className="login-brand" />
 
           <h2 className="greeting" style={{ color: textTone, textAlign: 'center' }}>
