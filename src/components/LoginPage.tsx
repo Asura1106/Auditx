@@ -325,7 +325,6 @@ export function LoginPage({
           z-index: 0;
           overflow: hidden;
           transition: background 500ms ease, filter 500ms ease;
-          pointer-events: none;
         }
 
         .sky-body {
@@ -684,6 +683,7 @@ export function LoginPage({
         className="scene-layer"
         style={{
           filter: isNight ? 'saturate(0.95) brightness(0.92)' : 'none',
+          pointerEvents: 'auto',
         }}
       >
         {!isNight ? null : (
@@ -813,7 +813,7 @@ export function LoginPage({
         <div className="hill-2" />
       </div>
 
-      <div className="relative z-10 min-h-screen flex items-center justify-center px-4 py-10">
+      <div className="relative z-10 min-h-screen flex items-center justify-center px-4 py-10 pointer-events-none">
         <div className="form-container relative z-20 pointer-events-auto" style={{ animation: 'slideInUp 600ms ease-out' }}>
           <img src={collegeLogo} alt="College logo" className="login-brand" />
 
