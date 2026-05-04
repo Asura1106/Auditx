@@ -813,7 +813,7 @@ export function LoginPage({
         <div className="hill-2" />
       </div>
 
-      <div className="relative z-10 min-h-screen flex items-center justify-center px-4 py-10 pointer-events-none">
+      <div className="relative z-10 min-h-screen flex items-center justify-center px-4 py-10">
         <div className="form-container relative z-20 pointer-events-auto" style={{ animation: 'slideInUp 600ms ease-out' }}>
           <img src={collegeLogo} alt="College logo" className="login-brand" />
 
